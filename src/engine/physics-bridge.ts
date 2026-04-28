@@ -1,14 +1,5 @@
-// Memory Protocol v2 Offsets (Must match Rust lib.rs)
-// These are F32 ELEMENT indices, NOT byte offsets.
-// To get byte offset: multiply by 4.
-// To get Int32Array index: same as f32 index (both are 4-byte elements).
-export const OFFSETS = {
-  CONTROL: 0,
-  CAMERA: 64,
-  PHYSICS: 128,
-  TELEMETRY: 256,
-  LUTS: 2048,
-} as const;
+export { OFFSETS, BLOCK_FLOATS, TELEMETRY_SLOTS } from "./sab-schema";
+import { OFFSETS } from "./sab-schema";
 
 export class PhysicsBridge {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,6 +118,28 @@ export class PhysicsBridge {
     // true immediately after Worker() constructor -- before WASM loaded.
     // Now we wait for the actual READY ack from the worker.
     return !!(this.engine || this.workerReady);
+  }
+
+  /**
+   * Wire `document.visibilitychange` so the worker drops to its idle
+   * loop when the tab is hidden and resumes 75 Hz on focus. Without
+   * this, the worker keeps full pace in background tabs and burns
+   * battery on mobile.
+   *
+   * Returns a teardown function the caller invokes on unmount.
+   */
+  public attachVisibilityListener(): () => void {
+    if (typeof document === "undefined") return () => {};
+    const handler = () => {
+      if (!this.worker) return;
+      this.worker.postMessage({
+        type: "VISIBILITY",
+        data: { hidden: document.visibilityState === "hidden" },
+      });
+    };
+    document.addEventListener("visibilitychange", handler);
+    handler(); // sync initial state
+    return () => document.removeEventListener("visibilitychange", handler);
   }
 
   public async ensureInitialized(): Promise<void> {
