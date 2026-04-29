@@ -15,7 +15,7 @@
     "format": "prettier --write \"**/*.{js,ts,tsx,css,md,json}\"",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "physics:regress": "vitest run --testNamePattern='physics-regression'",
+    "physics:regress": "cd physics-engine && cargo test --release -p gravitas-core --test conservation --test photon_ring --test isco --test schwarzschild_degenerate --test near_extremal --test normalize",
     "seo:check": "bun scripts/seo-provenance.ts src/app/layout.tsx",
     "seo:ping": "bun scripts/indexnow-ping.ts",
     "shader:check": "vitest run --testNamePattern='shader-visual'",
