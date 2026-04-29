@@ -48,9 +48,29 @@ fn fs_main(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
 }
 `;
 
+// Returns the highest-fidelity color format the adapter actually renders to.
+// rgba16float is the production target (HDR, no banding); rgba8unorm is the
+// LDR fallback for adapters lacking float-renderable textures (some Iris Xe
+// driver versions, certain mobile GPUs). Probe the adapter feature set
+// rather than assume support.
+function selectColorFormat(adapter: GPUAdapter): GPUTextureFormat {
+  // float32-filterable implies rgba16float renderable on every adapter that
+  // exposes it. Adapters without it can still render to rgba16float in
+  // practice, but the safe assumption is to downgrade.
+  if (adapter.features.has("float32-filterable")) {
+    return "rgba16float";
+  }
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[renderer] float32-filterable unavailable; falling back to rgba8unorm",
+  );
+  return "rgba8unorm";
+}
+
 export class WebGPURenderer {
   private device: GPUDevice | null = null;
   private context: GPUCanvasContext | null = null;
+  private hdrFormat: GPUTextureFormat = "rgba16float";
 
   // Compute Pipeline
   private computePipeline: GPUComputePipeline | null = null;
@@ -93,6 +113,7 @@ export class WebGPURenderer {
       return false;
     }
 
+    this.hdrFormat = selectColorFormat(adapter);
     this.device = await adapter.requestDevice();
     this.context = canvas.getContext("webgpu");
 
@@ -167,13 +188,13 @@ export class WebGPURenderer {
     this.historyTextures = [
       this.device.createTexture({
         size: [width, height, 1],
-        format: "rgba16float",
+        format: this.hdrFormat,
         usage:
           GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING,
       }),
       this.device.createTexture({
         size: [width, height, 1],
-        format: "rgba16float",
+        format: this.hdrFormat,
         usage:
           GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING,
       }),

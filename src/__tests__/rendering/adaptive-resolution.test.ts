@@ -22,11 +22,14 @@ describe("AdaptiveResolutionController", () => {
    * For any performance state where FPS remains below 60 for more than 2 seconds,
    * the render resolution should decrease by 10%.
    */
-  it("should decrease resolution by 10% when FPS < 60 for more than 2 seconds", () => {
+  it("should decrease resolution by 10% when FPS <= 55 for more than 2 seconds", () => {
     fc.assert(
       fc.property(
-        // Generate FPS values below 60 (20-59)
-        fc.integer({ min: 20, max: 59 }),
+        // Generate FPS values at or below the down-shift threshold (20-55).
+        // The 56-74 band is the hysteresis dead zone added to eliminate
+        // 60-FPS-boundary oscillation; values in that band intentionally
+        // do not trigger a scale change.
+        fc.integer({ min: 20, max: 55 }),
         // Generate time steps that will accumulate to > 2 seconds
         fc.array(fc.float({ min: Math.fround(0.1), max: Math.fround(0.5) }), {
           minLength: 5,
