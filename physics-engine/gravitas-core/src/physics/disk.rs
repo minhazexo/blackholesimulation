@@ -16,44 +16,49 @@ use crate::metric::{Kerr, Metric, Orbit};
 // Circular orbit quantities in Kerr spacetime (equatorial, Boyer-Lindquist)
 // ============================================================================
 
-/// Specific energy E of a circular equatorial orbit at radius r.
+/// Specific energy E of a prograde circular equatorial orbit at r,
+/// Bardeen 1973 dimensionless form with v = √(M/r) and a* = a/M:
 ///
-/// E = (1 - 2M/r +/- a*sqrt(M)/r^{3/2}) / sqrt(1 - 3M/r +/- 2a*sqrt(M)/r^{3/2})
+///   E/μ = (1 − 2 v² + a* v³) / √(1 − 3 v² + 2 a* v³).
 ///
-/// Sign: upper for prograde, lower for retrograde.
+/// Returns 1.0 inside the photon sphere where no circular orbit
+/// exists.
 fn specific_energy(r: f64, m: f64, a: f64) -> f64 {
     let rm = r / m;
-    let sqrt_mr = (m / r).sqrt();
-    let am = a / m;
+    let v = (m / r).sqrt();
+    let v3 = v * v * v;
+    let a_star = a / m;
 
-    let num = 1.0 - 2.0 / rm + am * sqrt_mr;
-    let den_sq = 1.0 - 3.0 / rm + 2.0 * am * sqrt_mr;
+    let num = 1.0 - 2.0 / rm + a_star * v3;
+    let den_sq = 1.0 - 3.0 / rm + 2.0 * a_star * v3;
 
     if den_sq <= 0.0 {
-        return 1.0; // Inside ISCO, return rest mass energy
+        return 1.0;
     }
     num / den_sq.sqrt()
 }
 
-/// Specific angular momentum L_z of a circular equatorial orbit at radius r.
+/// Specific axial angular momentum L_z of a prograde circular
+/// equatorial orbit at r, Bardeen 1973 form:
 ///
-/// L_z = +/- sqrt(M) * r^{1/2} * (1 - 2a*sqrt(M)/r^{3/2} + a^2/r^2)
-///       / sqrt(1 - 3M/r +/- 2a*sqrt(M)/r^{3/2})
+///   L_z/(μM) = (1 − 2 a* v³ + a*² v⁴) / [v · √(1 − 3 v² + 2 a* v³)].
 ///
-/// Sign: + for prograde, - for retrograde.
+/// Returns 0.0 inside the photon sphere.
 fn specific_angular_momentum(r: f64, m: f64, a: f64) -> f64 {
     let rm = r / m;
-    let sqrt_mr = (m / r).sqrt();
-    let am = a / m;
-    let a2r2 = (a / r).powi(2);
+    let v = (m / r).sqrt();
+    let v3 = v * v * v;
+    let v4 = v3 * v;
+    let a_star = a / m;
+    let a_star_sq = a_star * a_star;
 
-    let num = m.sqrt() * r.sqrt() * (1.0 - 2.0 * am * sqrt_mr + a2r2);
-    let den_sq = 1.0 - 3.0 / rm + 2.0 * am * sqrt_mr;
+    let num = m * (1.0 - 2.0 * a_star * v3 + a_star_sq * v4);
+    let den_sq = 1.0 - 3.0 / rm + 2.0 * a_star * v3;
 
     if den_sq <= 0.0 {
         return 0.0;
     }
-    num / den_sq.sqrt()
+    num / (v * den_sq.sqrt())
 }
 
 /// Angular velocity Omega of a circular equatorial orbit.
