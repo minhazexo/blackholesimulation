@@ -9,7 +9,7 @@
 mod common;
 
 use gravitas::geodesic::{
-    integrate, GeodesicState, IntegrationMethod, IntegrationOptions, TerminationReason,
+    integrate, GeodesicKind, GeodesicState, IntegrationMethod, IntegrationOptions, TerminationReason,
 };
 use gravitas::metric::Kerr;
 use proptest::prelude::*;
@@ -48,6 +48,7 @@ proptest! {
             escape_radius: 1.0e6,
             renormalize_interval: 5,
             record_path: false,
+            geodesic_kind: GeodesicKind::Null,
         };
 
         let traj = integrate(&initial, &metric, &options);

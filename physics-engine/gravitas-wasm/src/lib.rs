@@ -243,6 +243,123 @@ impl PhysicsEngine {
     }
 
     // =================================================================
+    // SP-4 / SP-5 physics primitives exposed to JavaScript.
+    // =================================================================
+
+    /// Hawking temperature T_H (Kelvin) for the current mass + spin
+    /// at the supplied SI rest mass. The structural Kerr correction
+    /// uses the dimensionless spin a*; mass is supplied separately
+    /// because the WASM PhysicsEngine carries dimensionless mass for
+    /// the imaging side and SI mass is only meaningful for the
+    /// quantum-readout panel.
+    pub fn hawking_temperature_kelvin(&self, mass_kg: f64) -> f64 {
+        gravitas::quantum::hawking::hawking_temperature(mass_kg, self.spin)
+    }
+
+    /// Wien peak frequency (Hz) for a Planck-shape Hawking spectrum
+    /// at the given temperature.
+    pub fn wien_peak_hz(&self, temperature_k: f64) -> f64 {
+        gravitas::quantum::hawking::wien_peak_frequency(temperature_k)
+    }
+
+    /// Planck-shape Hawking spectrum sample (W·m⁻²·Hz⁻¹·sr⁻¹). The
+    /// readout panel labels this "illustrative"; no greybody factor.
+    pub fn hawking_spectrum_sample(&self, freq_hz: f64, temperature_k: f64) -> f64 {
+        gravitas::quantum::hawking::hawking_spectrum_planck(freq_hz, temperature_k)
+    }
+
+    /// Outer-horizon area in geometric units (M = 1).
+    pub fn horizon_area_geometric(&self) -> f64 {
+        gravitas::quantum::bekenstein::horizon_area_geometric(&self.metric_bl)
+    }
+
+    /// Bekenstein-Hawking dimensionless entropy S/k_B for the current
+    /// hole at the supplied SI mass.
+    pub fn bekenstein_hawking_entropy_ratio(&self, mass_kg: f64) -> f64 {
+        gravitas::quantum::bekenstein::bekenstein_hawking_entropy_per_kb(
+            &self.metric_bl,
+            mass_kg,
+        )
+    }
+
+    /// Page 1976 photon-only Schwarzschild evaporation lifetime in
+    /// seconds. The formula is spin-independent at leading order;
+    /// callers wanting the spin correction multiply the result by a
+    /// per-spin factor from Page 1976 Table 1 (currently TBD here;
+    /// the panel is illustrative).
+    pub fn schwarzschild_evaporation_time_seconds(&self, mass_kg: f64) -> f64 {
+        gravitas::quantum::bekenstein::schwarzschild_evaporation_time(mass_kg)
+    }
+
+    /// Radiative efficiency η = 1 − E_ISCO for the prograde ISCO.
+    /// Reproduces the Schwarzschild 5.72 % and Thorne 32 % limits.
+    pub fn radiative_efficiency_prograde(&self) -> f64 {
+        gravitas::physics::plunge::radiative_efficiency(
+            &self.metric_bl,
+            gravitas::metric::Orbit::Prograde,
+        )
+    }
+
+    /// Wald 1974 horizon charge q_W = 2 B_0 a M induced by spin
+    /// dragging the supplied uniform asymptotic field through the
+    /// horizon. B_0 is in geometric units (the panel converts).
+    pub fn wald_horizon_charge(&self, b0: f64) -> f64 {
+        gravitas::physics::magnetosphere::wald_horizon_charge(&self.metric_bl, b0)
+    }
+
+    /// Asymptotic Bz recovered from the Wald A_φ at far radius.
+    /// Used for renderer normalisation when streamlines land in a
+    /// follow-up.
+    pub fn wald_asymptotic_b_z(&self, b0: f64, r: f64, theta: f64) -> f64 {
+        let a_mu = gravitas::physics::magnetosphere::wald_potential_down(
+            &self.metric_bl,
+            b0,
+            r,
+            theta,
+        );
+        gravitas::physics::magnetosphere::asymptotic_b_z_from_potential(r, theta, a_mu[3])
+    }
+
+    /// Pandya+ 2016 thermal synchrotron emissivity j_ν (CGS). Caller
+    /// supplies the plasma state; the radiative-transfer integration
+    /// path is currently composed JS-side.
+    pub fn synchrotron_emissivity(
+        &self,
+        freq_hz: f64,
+        n_e_cm3: f64,
+        t_e_kelvin: f64,
+        b_gauss: f64,
+        theta_b_rad: f64,
+    ) -> f64 {
+        let plasma = gravitas::physics::synchrotron::PlasmaState {
+            n_e: n_e_cm3,
+            t_e: t_e_kelvin,
+            b_field: b_gauss,
+            theta_b: theta_b_rad,
+        };
+        gravitas::physics::synchrotron::j_thermal_synchrotron(freq_hz, plasma)
+    }
+
+    /// Pandya+ 2016 thermal synchrotron absorption coefficient α_ν
+    /// (CGS cm⁻¹) via Kirchhoff's law in the thermal limit.
+    pub fn synchrotron_absorption(
+        &self,
+        freq_hz: f64,
+        n_e_cm3: f64,
+        t_e_kelvin: f64,
+        b_gauss: f64,
+        theta_b_rad: f64,
+    ) -> f64 {
+        let plasma = gravitas::physics::synchrotron::PlasmaState {
+            n_e: n_e_cm3,
+            t_e: t_e_kelvin,
+            b_field: b_gauss,
+            theta_b: theta_b_rad,
+        };
+        gravitas::physics::synchrotron::alpha_thermal_synchrotron(freq_hz, plasma)
+    }
+
+    // =================================================================
     // SPACETIME VISUALIZATION: curvature.rs, lightcone.rs, frame_drag.rs,
     // embedding.rs -- now exposed to JavaScript for 3D grid rendering.
     // =================================================================
@@ -523,6 +640,7 @@ impl PhysicsEngine {
             escape_radius: 1000.0,
             renormalize_interval: 10,
             record_path: false,
+            geodesic_kind: gravitas::geodesic::GeodesicKind::Null,
         };
 
         let trajectory = if use_kerr_schild {

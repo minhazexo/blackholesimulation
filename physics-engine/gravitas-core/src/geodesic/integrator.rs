@@ -30,6 +30,19 @@ pub struct IntegrationOptions {
     pub escape_radius: f64,
     pub renormalize_interval: usize,
     pub record_path: bool,
+    /// Geodesic family to enforce in the renormalization step. Null
+    /// (`H = 0`) is the default for photon ray-marching; Timelike
+    /// (`H = -1/2` for unit rest mass) is for matter trajectories
+    /// such as the ISCO plunging stream.
+    pub geodesic_kind: GeodesicKind,
+}
+
+/// Discriminates null (light) vs timelike (matter) geodesics so the
+/// renormalization step picks the right Hamiltonian shell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GeodesicKind {
+    Null,
+    Timelike,
 }
 
 impl Default for IntegrationOptions {
@@ -42,6 +55,7 @@ impl Default for IntegrationOptions {
             escape_radius: 1000.0,
             renormalize_interval: 10,
             record_path: false,
+            geodesic_kind: GeodesicKind::Null,
         }
     }
 }

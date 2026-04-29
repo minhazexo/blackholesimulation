@@ -9,8 +9,8 @@ mod termination;
 
 pub use hamiltonian::get_state_derivative;
 pub use integrator::{
-    adaptive_rkf45_step, step_rk4, step_symplectic, AdaptiveStepper, IntegrationMethod,
-    IntegrationOptions,
+    adaptive_rkf45_step, step_rk4, step_symplectic, AdaptiveStepper, GeodesicKind,
+    IntegrationMethod, IntegrationOptions,
 };
 pub use termination::TerminationReason;
 
@@ -207,11 +207,18 @@ pub fn integrate<M: Metric>(
         None
     };
 
-    // Renormalize momentum to H=0 at start. If the initial state already
-    // drifted off the null cone (caller built it incorrectly), terminate
-    // immediately so the caller sees the failure rather than integrating
-    // a non-null geodesic.
-    if crate::invariants::renormalize_null(&mut state, metric).is_err() {
+    // Pick the renormalization shell once per call. Null enforces
+    // H = 0 (photons); Timelike enforces H = -1/2 (unit-mass matter).
+    let renormalize: fn(&mut GeodesicState, &M) -> Result<(), crate::invariants::NormalizationError> =
+        match options.geodesic_kind {
+            GeodesicKind::Null => crate::invariants::renormalize_null,
+            GeodesicKind::Timelike => crate::invariants::renormalize_timelike,
+        };
+
+    // Renormalize once at the start. If the initial state is off-shell by
+    // more than rounding noise, terminate so the caller sees the failure
+    // rather than integrating a contaminated trajectory.
+    if renormalize(&mut state, metric).is_err() {
         return Trajectory {
             final_state: state,
             termination: TerminationReason::NormalizationFailure,
@@ -251,7 +258,7 @@ pub fn integrate<M: Metric>(
         // integration so the caller sees NormalizationFailure rather
         // than continuing with stale state.
         if steps % options.renormalize_interval == 0
-            && crate::invariants::renormalize_null(&mut state, metric).is_err()
+            && renormalize(&mut state, metric).is_err()
         {
             return Trajectory {
                 final_state: state,
