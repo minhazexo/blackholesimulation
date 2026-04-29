@@ -52,6 +52,11 @@ export class WebGLRenderer {
   private performanceMonitor = new PerformanceMonitor();
   private lastFrameTime = performance.now();
   private lastMetricsUpdate = 0;
+  // Set when EXT_color_buffer_float lights up. False on Safari 16- and
+  // some mobile drivers; downstream framebuffers must branch on this
+  // to avoid a half/float attachment whose driver silently fails the
+  // attachment-completeness check (FRAMEBUFFER_INCOMPLETE_ATTACHMENT).
+  public hasFloatFramebuffer = false;
 
   constructor() {}
 
@@ -75,8 +80,17 @@ export class WebGLRenderer {
     // blend the scene with uninitialized history (often all-black).
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
-    // Enable float textures for HDR
-    gl.getExtension("EXT_color_buffer_float");
+    // Enable float textures for HDR. Safari 16 and below return null;
+    // record the result so HDR-attachment paths can downgrade to LDR
+    // rather than ship a broken framebuffer.
+    this.hasFloatFramebuffer =
+      gl.getExtension("EXT_color_buffer_float") !== null;
+    if (!this.hasFloatFramebuffer) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[renderer] EXT_color_buffer_float unavailable; HDR pipeline downgraded",
+      );
+    }
 
     this.width = canvas.width;
     this.height = canvas.height;
@@ -276,13 +290,13 @@ export class WebGLRenderer {
 
     if (physicsBridge && physicsBridge.isReady()) {
       const telemetry = physicsBridge.tick(0.016); // keep telemetry alive
-      if (telemetry && telemetry.physics[15] > 0.0) {
-        shadowShiftMin = telemetry.physics[4];
-        shadowShiftMax = telemetry.physics[5];
-        shadowCount = telemetry.physics[15];
+      if (telemetry && (telemetry.physics[15] ?? 0) > 0.0) {
+        shadowShiftMin = telemetry.physics[4] ?? 0;
+        shadowShiftMax = telemetry.physics[5] ?? 0;
+        shadowCount = telemetry.physics[15] ?? 0;
 
         for (let i = 0; i < 128; i++) {
-          shadowCurve[i] = telemetry.physics[16 + i];
+          shadowCurve[i] = telemetry.physics[16 + i] ?? 0;
         }
       }
     }

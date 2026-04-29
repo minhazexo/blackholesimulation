@@ -31,6 +31,11 @@ pub struct GeodesicState {
 
 impl GeodesicState {
     /// Create a new geodesic state.
+    ///
+    /// 8-component constructor mirrors the (x^mu, p_mu) phase-space pair
+    /// in standard GR notation; collapsing into nested arrays loses the
+    /// per-component callsite clarity that physics tests depend on.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         t: f64,
         r: f64,
@@ -87,6 +92,10 @@ impl GeodesicState {
         n
     }
 
+    // RKF45 stage accumulators: scalar-vector linear combinations match the
+    // Butcher tableau row-by-row. Grouping (k_i, s_i) into a struct hides the
+    // tableau structure that the integrator's correctness proof relies on.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn add_scaled_3(
         &self,
         k1: Self,
@@ -104,6 +113,7 @@ impl GeodesicState {
         n
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn add_scaled_4(
         &self,
         k1: Self,
@@ -123,6 +133,7 @@ impl GeodesicState {
         n
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn add_scaled_5(
         &self,
         k1: Self,

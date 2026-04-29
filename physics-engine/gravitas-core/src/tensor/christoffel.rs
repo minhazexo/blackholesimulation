@@ -39,10 +39,13 @@ pub fn christoffel_from_metric_derivs<M: Metric>(
 
     let mut gamma = [[[0.0f64; 4]; 4]; 4];
 
+    // Tensor index notation (alpha, mu, nu, sigma) mirrors the physical formula
+    // Gamma^alpha_{mu nu} = 1/2 g^{alpha sigma} (dg_{sigma mu,nu} + dg_{sigma nu,mu} - dg_{mu nu,sigma}).
+    // Iterator-style rewrites obscure the index discipline that GR readability requires.
+    #[allow(clippy::needless_range_loop)]
     for alpha in 0..4 {
         for mu in 0..4 {
             for nu in 0..4 {
-                // Gamma^alpha_{mu nu} = 1/2 g^{alpha sigma} (dg_{sigma mu}/dx^nu + dg_{sigma nu}/dx^mu - dg_{mu nu}/dx^sigma)
                 let mut sum = 0.0;
                 for sigma in 0..4 {
                     let term =
@@ -61,8 +64,8 @@ fn metric_derivative_r<M: Metric>(metric: &M, r: f64, theta: f64, eps: f64) -> [
     let g_plus = metric.covariant(r + eps, theta);
     let g_minus = metric.covariant(r - eps, theta);
     let mut dg = [0.0; 16];
-    for i in 0..16 {
-        dg[i] = (g_plus.components[i] - g_minus.components[i]) / (2.0 * eps);
+    for (i, slot) in dg.iter_mut().enumerate() {
+        *slot = (g_plus.components[i] - g_minus.components[i]) / (2.0 * eps);
     }
     dg
 }
@@ -71,8 +74,8 @@ fn metric_derivative_theta<M: Metric>(metric: &M, r: f64, theta: f64, eps: f64) 
     let g_plus = metric.covariant(r, theta + eps);
     let g_minus = metric.covariant(r, theta - eps);
     let mut dg = [0.0; 16];
-    for i in 0..16 {
-        dg[i] = (g_plus.components[i] - g_minus.components[i]) / (2.0 * eps);
+    for (i, slot) in dg.iter_mut().enumerate() {
+        *slot = (g_plus.components[i] - g_minus.components[i]) / (2.0 * eps);
     }
     dg
 }

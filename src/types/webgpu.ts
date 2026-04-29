@@ -103,14 +103,14 @@ export function writeCameraUniforms(
   buffer.set(uniforms.prevViewProj, offset + 64);
 
   // position (3 floats) + 1 pad
-  buffer[offset + 80] = uniforms.position[0];
-  buffer[offset + 81] = uniforms.position[1];
-  buffer[offset + 82] = uniforms.position[2];
+  buffer[offset + 80] = uniforms.position[0] ?? 0;
+  buffer[offset + 81] = uniforms.position[1] ?? 0;
+  buffer[offset + 82] = uniforms.position[2] ?? 0;
   buffer[offset + 83] = 0.0; // pad
 
   // direction (3 floats) + 1 pad
-  buffer[offset + 84] = uniforms.direction[0];
-  buffer[offset + 85] = uniforms.direction[1];
-  buffer[offset + 86] = uniforms.direction[2];
+  buffer[offset + 84] = uniforms.direction[0] ?? 0;
+  buffer[offset + 85] = uniforms.direction[1] ?? 0;
+  buffer[offset + 86] = uniforms.direction[2] ?? 0;
   buffer[offset + 87] = 0.0; // pad
 }

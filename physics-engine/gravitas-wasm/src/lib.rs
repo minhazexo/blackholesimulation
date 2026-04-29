@@ -432,7 +432,7 @@ impl PhysicsEngine {
                 let actual_points = curve.len().min(SHADOW_CURVE_MAX_POINTS);
                 *sab_ptr.add(OFFSET_PHYSICS + 15) = actual_points as f32;
 
-                for i in 0..actual_points {
+                for (i, (a, b)) in curve.iter().take(actual_points).enumerate() {
                     let slot = OFFSET_PHYSICS + SHADOW_CURVE_OFFSET_IN_PHYSICS + i * 2;
                     debug_assert!(
                         slot + 1 < OFFSET_TELEMETRY,
@@ -440,8 +440,8 @@ impl PhysicsEngine {
                         slot,
                         OFFSET_TELEMETRY,
                     );
-                    *sab_ptr.add(slot) = curve[i].0 as f32;
-                    *sab_ptr.add(slot + 1) = curve[i].1 as f32;
+                    *sab_ptr.add(slot) = *a as f32;
+                    *sab_ptr.add(slot + 1) = *b as f32;
                 }
 
                 // Extents for fast bounding box checks
@@ -479,15 +479,29 @@ impl PhysicsEngine {
     }
 
     /// High-precision geodesic integration (delegates to gravitas-core).
+    ///
+    /// Returns an `Err` if `initial_state` is not exactly 8 elements
+    /// (4-vector position followed by 4-vector covariant momentum) or
+    /// if `tolerance` is non-positive. Surfaces as a JS exception that
+    /// the caller can catch; previously returned the malformed input
+    /// silently which masked configuration mistakes.
     pub fn integrate_ray_relativistic(
         &self,
         initial_state: Vec<f64>,
         steps: usize,
         tolerance: f64,
         use_kerr_schild: bool,
-    ) -> Vec<f64> {
-        if initial_state.len() < 8 {
-            return initial_state;
+    ) -> Result<Vec<f64>, JsValue> {
+        if initial_state.len() != 8 {
+            return Err(JsValue::from_str(&format!(
+                "integrate_ray_relativistic: initial_state must be 8 elements (got {})",
+                initial_state.len()
+            )));
+        }
+        if !(tolerance > 0.0 && tolerance.is_finite()) {
+            return Err(JsValue::from_str(
+                "integrate_ray_relativistic: tolerance must be positive and finite",
+            ));
         }
 
         let state = GeodesicState::new(
@@ -518,8 +532,8 @@ impl PhysicsEngine {
         };
 
         let s = trajectory.final_state;
-        vec![
+        Ok(vec![
             s.x[0], s.x[1], s.x[2], s.x[3], s.p[0], s.p[1], s.p[2], s.p[3],
-        ]
+        ])
     }
 }

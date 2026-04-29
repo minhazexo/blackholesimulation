@@ -80,6 +80,7 @@ fn renormalize_errors_on_severe_negative_discriminant() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn rounding_tolerance_is_strictly_positive() {
     // Sanity: the band is positive (we negate it for the comparison).
     assert!(ROUNDING_TOLERANCE > 0.0);

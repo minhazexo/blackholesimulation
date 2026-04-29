@@ -655,6 +655,15 @@ export function useCamera(
 
   const startCinematic = useCallback(
     (mode: "orbit" | "dive") => {
+      // Honor the user-agent reduced-motion preference: WCAG 2.2 SC 2.3.3
+      // requires non-essential motion to be opt-out. Cinematic auto-orbit
+      // is decorative; we silently no-op rather than override the setting.
+      if (
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        return;
+      }
       // 1. Clean up existing state (Force Stop any previous cinematic)
       stopCinematic();
 
@@ -767,19 +776,21 @@ export function useCamera(
         !isNaN(t.clientX) && !isNaN(t.clientY);
 
       if (touches.length === 2) {
-        if (!touches.every(isValidTouch)) return;
-        const dx = touches[1].clientX - touches[0].clientX;
-        const dy = touches[1].clientY - touches[0].clientY;
-        touchState.current.initialDistance = Math.sqrt(dx * dx + dy * dy);
+        const [t0, t1] = touches;
+        if (!t0 || !t1 || !isValidTouch(t0) || !isValidTouch(t1)) return;
+        const dx = t1.clientX - t0.clientX;
+        const dy = t1.clientY - t0.clientY;
+        touchState.current.initialDistance = Math.hypot(dx, dy);
         touchState.current.initialAngle = Math.atan2(dy, dx);
         touchState.current.initialCenter = {
-          x: (touches[0].clientX + touches[1].clientX) / 2,
-          y: (touches[0].clientY + touches[1].clientY) / 2,
+          x: (t0.clientX + t1.clientX) / 2,
+          y: (t0.clientY + t1.clientY) / 2,
         };
       } else if (touches.length === 1) {
-        if (!isValidTouch(touches[0])) return;
-        lastMousePos.current.x = touches[0].clientX;
-        lastMousePos.current.y = touches[0].clientY;
+        const [t0] = touches;
+        if (!t0 || !isValidTouch(t0)) return;
+        lastMousePos.current.x = t0.clientX;
+        lastMousePos.current.y = t0.clientY;
         physicsRef.current.thetaVelocity = 0;
         physicsRef.current.phiVelocity = 0;
       }
@@ -794,13 +805,14 @@ export function useCamera(
       if (touches.length === 0) return;
 
       if (touches.length === 2) {
-        // Pinch/Pan Logic
-        const dx = touches[1].clientX - touches[0].clientX;
-        const dy = touches[1].clientY - touches[0].clientY;
-        const currentDistance = Math.sqrt(dx * dx + dy * dy);
+        const [t0, t1] = touches;
+        if (!t0 || !t1) return;
+        const dx = t1.clientX - t0.clientX;
+        const dy = t1.clientY - t0.clientY;
+        const currentDistance = Math.hypot(dx, dy);
         const currentCenter = {
-          x: (touches[0].clientX + touches[1].clientX) / 2,
-          y: (touches[0].clientY + touches[1].clientY) / 2,
+          x: (t0.clientX + t1.clientX) / 2,
+          y: (t0.clientY + t1.clientY) / 2,
         };
 
         // Zoom
@@ -830,9 +842,10 @@ export function useCamera(
           touchState.current.initialCenter = currentCenter;
         }
       } else if (touches.length === 1) {
-        // Rotate
-        const deltaX = touches[0].clientX - lastMousePos.current.x;
-        const deltaY = touches[0].clientY - lastMousePos.current.y;
+        const [t0] = touches;
+        if (!t0) return;
+        const deltaX = t0.clientX - lastMousePos.current.x;
+        const deltaY = t0.clientY - lastMousePos.current.y;
         const sensitivity = 0.005;
 
         physicsRef.current.theta += deltaX * sensitivity;
@@ -840,8 +853,8 @@ export function useCamera(
         physicsRef.current.thetaVelocity = deltaX * sensitivity * 0.5;
         physicsRef.current.phiVelocity = deltaY * sensitivity * 0.5;
 
-        lastMousePos.current.x = touches[0].clientX;
-        lastMousePos.current.y = touches[0].clientY;
+        lastMousePos.current.x = t0.clientX;
+        lastMousePos.current.y = t0.clientY;
       }
       setCameraState({ ...physicsRef.current });
     },

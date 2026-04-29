@@ -97,40 +97,38 @@ export class AdaptiveResolutionController {
       return this.currentScale;
     }
 
-    // Track low FPS duration
-    // Requirement 11.1: Decrease resolution when FPS < 60 for more than 2 seconds
-    if (currentFPS < 60) {
-      this.lowFPSTimer += deltaTime;
-      this.highFPSTimer = 0; // Reset high FPS timer
+    // Hysteresis band: down-shift below DOWN_FPS, up-shift above UP_FPS.
+    // The 55-75 middle zone neither shifts nor resets, eliminating the
+    // 60-FPS-boundary oscillation that the prior single-threshold design
+    // produced when frame times jittered around the target.
+    const DOWN_FPS = 55;
+    const UP_FPS = 75;
 
-      // If FPS has been low for more than 2 seconds, reduce resolution
+    if (currentFPS <= DOWN_FPS) {
+      this.lowFPSTimer += deltaTime;
+      this.highFPSTimer = 0;
       if (this.lowFPSTimer > 2.0) {
         this.targetScale = Math.max(
           this.config.minScale,
           this.targetScale - this.config.adjustmentStep,
         );
-        this.lowFPSTimer = 0; // Reset timer after adjustment
+        this.lowFPSTimer = 0;
       }
-    }
-    // Track high FPS duration
-    // Requirement 11.2: Increase resolution when FPS > 75 for more than 5 seconds
-    else if (currentFPS > 75) {
+    } else if (currentFPS >= UP_FPS) {
       this.highFPSTimer += deltaTime;
-      this.lowFPSTimer = 0; // Reset low FPS timer
-
-      // If FPS has been high for more than 5 seconds, increase resolution
+      this.lowFPSTimer = 0;
       if (this.highFPSTimer > 5.0) {
         this.targetScale = Math.min(
           this.config.maxScale,
           this.targetScale + this.config.adjustmentStep,
         );
-        this.highFPSTimer = 0; // Reset timer after adjustment
+        this.highFPSTimer = 0;
       }
-    }
-    // FPS is between 60 and 75 - reset timers but don't adjust
-    else {
-      this.lowFPSTimer = 0;
-      this.highFPSTimer = 0;
+    } else {
+      // Middle band: bleed timers down rather than hard-reset, so
+      // brief excursions out of the band don't immediately reset progress.
+      this.lowFPSTimer = Math.max(0, this.lowFPSTimer - deltaTime);
+      this.highFPSTimer = Math.max(0, this.highFPSTimer - deltaTime);
     }
 
     // Requirement 11.3: Clamp resolution between minScale and maxScale

@@ -244,11 +244,18 @@ export class UniformBatcher {
 
     // Slow path: Array (inputs like [w, h]) - Deprecated for hot path but supported
     if (Array.isArray(value)) {
-      if (value.length === 2) this.gl.uniform2f(loc, value[0], value[1]);
+      if (value.length === 2)
+        this.gl.uniform2f(loc, value[0] ?? 0, value[1] ?? 0);
       else if (value.length === 3)
-        this.gl.uniform3f(loc, value[0], value[1], value[2]);
+        this.gl.uniform3f(loc, value[0] ?? 0, value[1] ?? 0, value[2] ?? 0);
       else if (value.length === 4)
-        this.gl.uniform4f(loc, value[0], value[1], value[2], value[3]);
+        this.gl.uniform4f(
+          loc,
+          value[0] ?? 0,
+          value[1] ?? 0,
+          value[2] ?? 0,
+          value[3] ?? 0,
+        );
     }
   }
 

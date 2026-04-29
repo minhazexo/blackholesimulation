@@ -21,27 +21,28 @@ export function scanForProvenance(source: string): ScanResult {
   const violations: Violation[] = [];
 
   for (let i = 0; i < lines.length; i++) {
-    const declMatch = lines[i].match(DECL_RE);
+    const headLine = lines[i] ?? "";
+    const declMatch = headLine.match(DECL_RE);
     if (!declMatch) continue;
 
-    let blockText = lines[i];
+    let blockText = headLine;
     let depth =
       (blockText.match(/\{/g) ?? []).length -
       (blockText.match(/\}/g) ?? []).length;
     let j = i + 1;
     while (depth > 0 && j < lines.length) {
-      blockText += "\n" + lines[j];
+      const next = lines[j] ?? "";
+      blockText += "\n" + next;
       depth +=
-        (lines[j].match(/\{/g) ?? []).length -
-        (lines[j].match(/\}/g) ?? []).length;
+        (next.match(/\{/g) ?? []).length - (next.match(/\}/g) ?? []).length;
       j++;
     }
 
     if (!SCHEMA_CONTEXT_RE.test(blockText)) continue;
 
     const variable = declMatch[1] ?? "(unnamed)";
-    const prevLine = i > 0 ? lines[i - 1] : "";
-    if (!PROVENANCE_RE.test(prevLine ?? "")) {
+    const prevLine = i > 0 ? (lines[i - 1] ?? "") : "";
+    if (!PROVENANCE_RE.test(prevLine)) {
       violations.push({ variable, line: i + 1 });
     }
   }
@@ -56,7 +57,8 @@ const isMain =
   // Node ESM
   (typeof process !== "undefined" &&
     process.argv[1] !== undefined &&
-    import.meta.url === `file://${process.argv[1].replace(/\\/g, "/")}`);
+    import.meta.url ===
+      `file://${(process.argv[1] ?? "").replace(/\\/g, "/")}`);
 
 if (isMain) {
   const target = process.argv[2] ?? "src/app/layout.tsx";

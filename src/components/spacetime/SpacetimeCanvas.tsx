@@ -57,7 +57,7 @@ export function SpacetimeCanvas({
     ];
     setMode((prev) => {
       const idx = modes.indexOf(prev);
-      return modes[(idx + 1) % modes.length];
+      return modes[(idx + 1) % modes.length] ?? prev;
     });
   }, []);
 

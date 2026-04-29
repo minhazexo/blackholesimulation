@@ -345,8 +345,8 @@ describe("Performance Validation", () => {
       const p99Index = Math.floor(sorted.length * 0.99);
       const p99 = sorted[p99Index];
 
-      expect(p99).toBeGreaterThan(sorted[0]);
-      expect(p99).toBeLessThanOrEqual(sorted[sorted.length - 1]);
+      expect(p99).toBeGreaterThan(sorted[0] ?? 0);
+      expect(p99).toBeLessThanOrEqual(sorted[sorted.length - 1] ?? Infinity);
     });
   });
 

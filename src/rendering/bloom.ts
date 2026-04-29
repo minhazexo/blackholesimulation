@@ -542,7 +542,12 @@ export class BloomManager {
 
     // === PASS 3: Combine with original scene ===
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    gl.viewport(
+      viewport[0] ?? 0,
+      viewport[1] ?? 0,
+      viewport[2] ?? 0,
+      viewport[3] ?? 0,
+    );
 
     gl.useProgram(this.combineProgram);
 

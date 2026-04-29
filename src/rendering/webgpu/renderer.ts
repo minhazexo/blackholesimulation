@@ -48,9 +48,29 @@ fn fs_main(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
 }
 `;
 
+// Returns the highest-fidelity color format the adapter actually renders to.
+// rgba16float is the production target (HDR, no banding); rgba8unorm is the
+// LDR fallback for adapters lacking float-renderable textures (some Iris Xe
+// driver versions, certain mobile GPUs). Probe the adapter feature set
+// rather than assume support.
+function selectColorFormat(adapter: GPUAdapter): GPUTextureFormat {
+  // float32-filterable implies rgba16float renderable on every adapter that
+  // exposes it. Adapters without it can still render to rgba16float in
+  // practice, but the safe assumption is to downgrade.
+  if (adapter.features.has("float32-filterable")) {
+    return "rgba16float";
+  }
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[renderer] float32-filterable unavailable; falling back to rgba8unorm",
+  );
+  return "rgba8unorm";
+}
+
 export class WebGPURenderer {
   private device: GPUDevice | null = null;
   private context: GPUCanvasContext | null = null;
+  private hdrFormat: GPUTextureFormat = "rgba16float";
 
   // Compute Pipeline
   private computePipeline: GPUComputePipeline | null = null;
@@ -93,6 +113,7 @@ export class WebGPURenderer {
       return false;
     }
 
+    this.hdrFormat = selectColorFormat(adapter);
     this.device = await adapter.requestDevice();
     this.context = canvas.getContext("webgpu");
 
@@ -167,13 +188,13 @@ export class WebGPURenderer {
     this.historyTextures = [
       this.device.createTexture({
         size: [width, height, 1],
-        format: "rgba16float",
+        format: this.hdrFormat,
         usage:
           GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING,
       }),
       this.device.createTexture({
         size: [width, height, 1],
-        format: "rgba16float",
+        format: this.hdrFormat,
         usage:
           GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING,
       }),
@@ -322,7 +343,13 @@ export class WebGPURenderer {
     const histIdx = this.currentHistoryIndex;
     const nextHistIdx = 1 - histIdx;
 
-    if (this.ataaBindGroups.length === 0 && this.ataaPipeline) {
+    const [hist0, hist1] = this.historyTextures;
+    if (
+      this.ataaBindGroups.length === 0 &&
+      this.ataaPipeline &&
+      hist0 &&
+      hist1
+    ) {
       this.ataaBindGroups = [
         this.device.createBindGroup({
           layout: this.ataaPipeline.getBindGroupLayout(0),
@@ -330,8 +357,8 @@ export class WebGPURenderer {
             { binding: 0, resource: { buffer: this.cameraBuffer } },
             { binding: 1, resource: { buffer: this.physicsBuffer } },
             { binding: 2, resource: this.computeTexture.createView() },
-            { binding: 3, resource: this.historyTextures[0].createView() },
-            { binding: 4, resource: this.historyTextures[1].createView() },
+            { binding: 3, resource: hist0.createView() },
+            { binding: 4, resource: hist1.createView() },
             { binding: 5, resource: this.sampler },
           ],
         }),
@@ -341,13 +368,16 @@ export class WebGPURenderer {
             { binding: 0, resource: { buffer: this.cameraBuffer } },
             { binding: 1, resource: { buffer: this.physicsBuffer } },
             { binding: 2, resource: this.computeTexture.createView() },
-            { binding: 3, resource: this.historyTextures[1].createView() },
-            { binding: 4, resource: this.historyTextures[0].createView() },
+            { binding: 3, resource: hist1.createView() },
+            { binding: 4, resource: hist0.createView() },
             { binding: 5, resource: this.sampler },
           ],
         }),
       ];
     }
+
+    const nextHistTex = this.historyTextures[nextHistIdx];
+    if (!nextHistTex) return;
 
     // Update Blit Bind Group to use the resolved history texture
     this.renderBindGroup = this.device.createBindGroup({
@@ -356,7 +386,7 @@ export class WebGPURenderer {
         { binding: 0, resource: this.sampler },
         {
           binding: 1,
-          resource: this.historyTextures[nextHistIdx].createView(),
+          resource: nextHistTex.createView(),
         },
       ],
     });
@@ -375,10 +405,11 @@ export class WebGPURenderer {
     passEncoder.end();
 
     // Pass 2: ATAA Resolve
-    if (this.ataaPipeline && this.ataaBindGroups.length > 0) {
+    const ataaBind = this.ataaBindGroups[histIdx];
+    if (this.ataaPipeline && ataaBind) {
       const ataaPass = commandEncoder.beginComputePass();
       ataaPass.setPipeline(this.ataaPipeline);
-      ataaPass.setBindGroup(0, this.ataaBindGroups[histIdx]);
+      ataaPass.setBindGroup(0, ataaBind);
       ataaPass.dispatchWorkgroups(
         Math.ceil(this.width / 8),
         Math.ceil(this.height / 8),

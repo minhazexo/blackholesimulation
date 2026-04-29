@@ -265,7 +265,7 @@ mod tests {
         // For Schwarzschild, all points should be at the same radius
         let expected_r = schwarzschild_shadow_radius(1.0);
         for &(alpha, beta) in &shadow {
-            let r = (alpha * alpha + beta * beta).sqrt();
+            let r = alpha.hypot(beta);
             assert!(
                 (r - expected_r).abs() < 0.2,
                 "Schwarzschild shadow should be circular at r={:.3}, got point at r={:.3}",
@@ -304,15 +304,9 @@ mod tests {
         let shadow9 = bardeen_shadow(&bh9, std::f64::consts::FRAC_PI_2, 100);
 
         // Compute average "size" of each shadow
-        let avg_r0: f64 = shadow0
-            .iter()
-            .map(|p| (p.0 * p.0 + p.1 * p.1).sqrt())
-            .sum::<f64>()
+        let avg_r0: f64 = shadow0.iter().map(|p| p.0.hypot(p.1)).sum::<f64>()
             / shadow0.len() as f64;
-        let avg_r9: f64 = shadow9
-            .iter()
-            .map(|p| (p.0 * p.0 + p.1 * p.1).sqrt())
-            .sum::<f64>()
+        let avg_r9: f64 = shadow9.iter().map(|p| p.0.hypot(p.1)).sum::<f64>()
             / shadow9.len() as f64;
 
         assert!(
