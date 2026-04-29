@@ -82,7 +82,7 @@ describe("Feature Toggles - Property-Based Tests", () => {
 
       // Check that each step count is greater than or equal to the previous
       for (let i = 1; i < steps.length; i++) {
-        expect(steps[i]).toBeGreaterThanOrEqual(steps[i - 1]);
+        expect(steps[i] ?? 0).toBeGreaterThanOrEqual(steps[i - 1] ?? 0);
       }
     });
   });

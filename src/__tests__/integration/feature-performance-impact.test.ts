@@ -561,16 +561,22 @@ describe("Feature Performance Impact - Integration Tests", () => {
       });
 
       // Frame times should increase with quality
-      expect(frameTimes[0].frameTime).toBeLessThan(frameTimes[1].frameTime);
-      expect(frameTimes[1].frameTime).toBeLessThan(frameTimes[2].frameTime);
-      expect(frameTimes[2].frameTime).toBeLessThan(frameTimes[3].frameTime);
+      expect(frameTimes[0]?.frameTime).toBeLessThan(
+        frameTimes[1]?.frameTime ?? Infinity,
+      );
+      expect(frameTimes[1]?.frameTime).toBeLessThan(
+        frameTimes[2]?.frameTime ?? Infinity,
+      );
+      expect(frameTimes[2]?.frameTime).toBeLessThan(
+        frameTimes[3]?.frameTime ?? Infinity,
+      );
 
       // Maximum performance should be fastest
-      expect(frameTimes[0].preset).toBe("maximum-performance");
-      expect(frameTimes[0].frameTime).toBeLessThan(10);
+      expect(frameTimes[0]?.preset).toBe("maximum-performance");
+      expect(frameTimes[0]?.frameTime).toBeLessThan(10);
 
       // Ultra quality should be slowest but still reasonable
-      expect(frameTimes[3].preset).toBe("ultra-quality");
+      expect(frameTimes[3]?.preset).toBe("ultra-quality");
     });
   });
 

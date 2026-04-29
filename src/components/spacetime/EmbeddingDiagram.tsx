@@ -70,15 +70,15 @@ export function EmbeddingDiagram({
       for (let j = 0; j <= nAngular; j++) {
         const phi = (j / nAngular) * Math.PI * 2;
         const x = r * Math.cos(phi);
-        const y = heights[i];
+        const y = heights[i] ?? 0;
         const zCoord = r * Math.sin(phi);
 
         vertices.push(x, y, zCoord);
 
         // Normal (approximate via cross product of tangent vectors)
-        // Tangent in r-direction
-        const h_next = i < nRadial ? heights[i + 1] : heights[i];
-        const h_prev = i > 0 ? heights[i - 1] : heights[i];
+        const fallback = heights[i] ?? 0;
+        const h_next = (i < nRadial ? heights[i + 1] : heights[i]) ?? fallback;
+        const h_prev = (i > 0 ? heights[i - 1] : heights[i]) ?? fallback;
         const dy_dr = (h_next - h_prev) / (2 * dr);
 
         const nx = -dy_dr * Math.cos(phi);

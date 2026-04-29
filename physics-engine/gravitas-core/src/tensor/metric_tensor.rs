@@ -60,6 +60,7 @@ impl MetricTensor4 {
     }
 
     /// Raise an index: p^mu = g^{mu nu} p_nu
+    #[allow(clippy::needless_range_loop)]
     pub fn raise_index(&self, p_lower: &[f64; 4]) -> [f64; 4] {
         let mut p_upper = [0.0; 4];
         for mu in 0..4 {

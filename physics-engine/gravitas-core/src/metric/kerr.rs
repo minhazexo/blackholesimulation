@@ -106,9 +106,7 @@ impl Kerr {
         }
 
         let a2 = a_star * a_star;
-        let z1 = 1.0
-            + (1.0 - a2).powf(1.0 / 3.0)
-                * ((1.0 + a_star).powf(1.0 / 3.0) + (1.0 - a_star).powf(1.0 / 3.0));
+        let z1 = 1.0 + (1.0 - a2).cbrt() * ((1.0 + a_star).cbrt() + (1.0 - a_star).cbrt());
         let z2 = (3.0 * a2 + z1 * z1).sqrt();
 
         let sign = match orbit {

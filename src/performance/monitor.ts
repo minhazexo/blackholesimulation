@@ -38,7 +38,7 @@ class RingBuffer {
   }
 
   push(value: number): void {
-    this.sum -= this.buffer[this.head];
+    this.sum -= this.buffer[this.head] ?? 0;
     this.buffer[this.head] = value;
     this.sum += value;
     this.head = (this.head + 1) % this.capacity;
@@ -52,7 +52,7 @@ class RingBuffer {
   last(): number {
     if (this.count === 0) return 0;
     const idx = (this.head - 1 + this.capacity) % this.capacity;
-    return this.buffer[idx];
+    return this.buffer[idx] ?? 0;
   }
 
   size(): number {

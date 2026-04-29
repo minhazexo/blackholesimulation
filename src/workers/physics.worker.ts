@@ -129,9 +129,9 @@ function calculate() {
   }
 
   // 2. READ INPUTS FROM SHARED BUFFER
-  const mouse_dx = sabControlView[1];
-  const mouse_dy = sabControlView[2];
-  const zoom_delta = sabControlView[3];
+  const mouse_dx = sabControlView[1] ?? 0;
+  const mouse_dy = sabControlView[2] ?? 0;
+  const zoom_delta = sabControlView[3] ?? 0;
 
   // 3. IDLE DETECTION
   const hasInput =

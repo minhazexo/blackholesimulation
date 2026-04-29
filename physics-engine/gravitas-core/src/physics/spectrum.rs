@@ -14,7 +14,7 @@ pub fn planck_law(lambda: f64, temperature: f64) -> f64 {
     if exponent > 100.0 {
         return 0.0;
     }
-    (C1 / lambda.powi(5)) / (exponent.exp() - 1.0)
+    (C1 / lambda.powi(5)) / exponent.exp_m1()
 }
 
 /// Integrate Planck spectrum against CIE 1931 XYZ color matching functions.
@@ -29,17 +29,18 @@ pub fn integrate_planck_xyz(temperature: f64) -> [f64; 3] {
     let mut y = 0.0;
     let mut z = 0.0;
 
-    let mut lambda = 380.0e-9;
-    let end = 780.0e-9;
-    let step = 2.0e-9;
+    let start: f64 = 380.0e-9;
+    let end: f64 = 780.0e-9;
+    let step: f64 = 2.0e-9;
+    let n_steps = ((end - start) / step).round() as usize;
 
-    while lambda <= end {
+    for i in 0..=n_steps {
+        let lambda = step.mul_add(i as f64, start);
         let intensity = planck_law(lambda, temperature);
         let (cx, cy, cz) = cie_1931(lambda);
         x += intensity * cx * step;
         y += intensity * cy * step;
         z += intensity * cz * step;
-        lambda += step;
     }
 
     [x, y, z]

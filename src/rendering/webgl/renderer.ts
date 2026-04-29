@@ -276,13 +276,13 @@ export class WebGLRenderer {
 
     if (physicsBridge && physicsBridge.isReady()) {
       const telemetry = physicsBridge.tick(0.016); // keep telemetry alive
-      if (telemetry && telemetry.physics[15] > 0.0) {
-        shadowShiftMin = telemetry.physics[4];
-        shadowShiftMax = telemetry.physics[5];
-        shadowCount = telemetry.physics[15];
+      if (telemetry && (telemetry.physics[15] ?? 0) > 0.0) {
+        shadowShiftMin = telemetry.physics[4] ?? 0;
+        shadowShiftMax = telemetry.physics[5] ?? 0;
+        shadowCount = telemetry.physics[15] ?? 0;
 
         for (let i = 0; i < 128; i++) {
-          shadowCurve[i] = telemetry.physics[16 + i];
+          shadowCurve[i] = telemetry.physics[16 + i] ?? 0;
         }
       }
     }

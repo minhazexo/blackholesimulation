@@ -114,6 +114,7 @@ export class GPUTimer {
     // Process completed queries from the front of the queue
     while (this.pendingQueries.length > 0) {
       const query = this.pendingQueries[0];
+      if (!query) break;
 
       const available = this.gl.getQueryParameter(
         query,

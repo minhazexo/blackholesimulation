@@ -171,7 +171,7 @@ describe("Adaptive Systems - Integration Tests", () => {
 
       // Each step should be small (smooth)
       for (let i = 1; i < scales.length; i++) {
-        const change = Math.abs(scales[i] - scales[i - 1]);
+        const change = Math.abs((scales[i] ?? 0) - (scales[i - 1] ?? 0));
         // Change should be small (< 5% per frame)
         expect(change).toBeLessThan(0.05);
       }
@@ -544,10 +544,9 @@ describe("Adaptive Systems - Integration Tests", () => {
       });
 
       // Simulate all 4 presets, each for 5 seconds
-      const presetFPS = [75, 65, 55, 45]; // Different FPS for each preset
+      const presetFPS = [75, 65, 55, 45] as const; // Different FPS for each preset
 
-      for (let preset = 0; preset < 4; preset++) {
-        const fps = presetFPS[preset];
+      for (const fps of presetFPS) {
         const frameTime = 1000 / fps;
         // Simulate 5 seconds - need to advance time by 5000ms total
         // Add a bit extra to ensure we cross the threshold
@@ -587,10 +586,9 @@ describe("Adaptive Systems - Integration Tests", () => {
       // Balanced: 75 FPS
       // High Quality: 65 FPS
       // Ultra Quality: 50 FPS
-      const presetFPS = [90, 75, 65, 50];
+      const presetFPS = [90, 75, 65, 50] as const;
 
-      for (let preset = 0; preset < 4; preset++) {
-        const fps = presetFPS[preset];
+      for (const fps of presetFPS) {
         const frameTime = 1000 / fps;
         for (let i = 0; i < fps * 5.1; i++) {
           mockTime += frameTime;
@@ -614,10 +612,9 @@ describe("Adaptive Systems - Integration Tests", () => {
       // Simulate all presets with very low FPS
       // Performance Monitor now has tiered minimums (24, 35)
       // Feed values < 24 to reach the ultimate fallback
-      const presetFPS = [20, 15, 10, 5];
+      const presetFPS = [20, 15, 10, 5] as const;
 
-      for (let preset = 0; preset < 4; preset++) {
-        const fps = presetFPS[preset];
+      for (const fps of presetFPS) {
         const frameTime = 1000 / fps;
         // Simulate 5 seconds - need to advance time by 5000ms total
         // Add a bit extra to ensure we cross the threshold
@@ -696,8 +693,8 @@ describe("Adaptive Systems - Integration Tests", () => {
 
       // Progress should increase over time
       for (let i = 1; i < progressUpdates.length; i++) {
-        expect(progressUpdates[i]).toBeGreaterThanOrEqual(
-          progressUpdates[i - 1],
+        expect(progressUpdates[i] ?? 0).toBeGreaterThanOrEqual(
+          progressUpdates[i - 1] ?? 0,
         );
       }
     });
@@ -806,10 +803,9 @@ describe("Adaptive Systems - Integration Tests", () => {
       });
 
       // Simulate mobile-appropriate FPS
-      const mobileFPS = [70, 60, 45, 30]; // Mobile typically has lower FPS
+      const mobileFPS = [70, 60, 45, 30] as const; // Mobile typically has lower FPS
 
-      for (let preset = 0; preset < 4; preset++) {
-        const fps = mobileFPS[preset];
+      for (const fps of mobileFPS) {
         const frameTime = 1000 / fps;
         // Apply mobile ray step cap
         const cappedSteps = getMobileRayStepCap(300, true);

@@ -33,7 +33,7 @@ const fabricatedSchema = {
     const result = scanForProvenance(source);
     expect(result.ok).toBe(false);
     expect(result.violations).toHaveLength(1);
-    expect(result.violations[0].variable).toBe("fabricatedSchema");
+    expect(result.violations[0]?.variable).toBe("fabricatedSchema");
   });
 
   it("treats comments other than // SOURCE: as missing provenance", () => {
@@ -56,7 +56,7 @@ const noProvenance = {
 };
 `;
     const result = scanForProvenance(source);
-    expect(result.violations[0].line).toBe(3);
+    expect(result.violations[0]?.line).toBe(3);
   });
 
   it("ignores object literals without @context", () => {

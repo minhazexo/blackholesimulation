@@ -322,7 +322,13 @@ export class WebGPURenderer {
     const histIdx = this.currentHistoryIndex;
     const nextHistIdx = 1 - histIdx;
 
-    if (this.ataaBindGroups.length === 0 && this.ataaPipeline) {
+    const [hist0, hist1] = this.historyTextures;
+    if (
+      this.ataaBindGroups.length === 0 &&
+      this.ataaPipeline &&
+      hist0 &&
+      hist1
+    ) {
       this.ataaBindGroups = [
         this.device.createBindGroup({
           layout: this.ataaPipeline.getBindGroupLayout(0),
@@ -330,8 +336,8 @@ export class WebGPURenderer {
             { binding: 0, resource: { buffer: this.cameraBuffer } },
             { binding: 1, resource: { buffer: this.physicsBuffer } },
             { binding: 2, resource: this.computeTexture.createView() },
-            { binding: 3, resource: this.historyTextures[0].createView() },
-            { binding: 4, resource: this.historyTextures[1].createView() },
+            { binding: 3, resource: hist0.createView() },
+            { binding: 4, resource: hist1.createView() },
             { binding: 5, resource: this.sampler },
           ],
         }),
@@ -341,13 +347,16 @@ export class WebGPURenderer {
             { binding: 0, resource: { buffer: this.cameraBuffer } },
             { binding: 1, resource: { buffer: this.physicsBuffer } },
             { binding: 2, resource: this.computeTexture.createView() },
-            { binding: 3, resource: this.historyTextures[1].createView() },
-            { binding: 4, resource: this.historyTextures[0].createView() },
+            { binding: 3, resource: hist1.createView() },
+            { binding: 4, resource: hist0.createView() },
             { binding: 5, resource: this.sampler },
           ],
         }),
       ];
     }
+
+    const nextHistTex = this.historyTextures[nextHistIdx];
+    if (!nextHistTex) return;
 
     // Update Blit Bind Group to use the resolved history texture
     this.renderBindGroup = this.device.createBindGroup({
@@ -356,7 +365,7 @@ export class WebGPURenderer {
         { binding: 0, resource: this.sampler },
         {
           binding: 1,
-          resource: this.historyTextures[nextHistIdx].createView(),
+          resource: nextHistTex.createView(),
         },
       ],
     });
@@ -375,10 +384,11 @@ export class WebGPURenderer {
     passEncoder.end();
 
     // Pass 2: ATAA Resolve
-    if (this.ataaPipeline && this.ataaBindGroups.length > 0) {
+    const ataaBind = this.ataaBindGroups[histIdx];
+    if (this.ataaPipeline && ataaBind) {
       const ataaPass = commandEncoder.beginComputePass();
       ataaPass.setPipeline(this.ataaPipeline);
-      ataaPass.setBindGroup(0, this.ataaBindGroups[histIdx]);
+      ataaPass.setBindGroup(0, ataaBind);
       ataaPass.dispatchWorkgroups(
         Math.ceil(this.width / 8),
         Math.ceil(this.height / 8),

@@ -57,7 +57,7 @@ describe("Phase 6: Advanced Physics Features", () => {
       const values = radii.map((r) => gravitationalRedshift(rs, r));
 
       for (let i = 1; i < values.length; i++) {
-        expect(values[i]).toBeGreaterThan(values[i - 1]);
+        expect(values[i] ?? 0).toBeGreaterThan(values[i - 1] ?? 0);
       }
     });
 
@@ -131,7 +131,7 @@ describe("Phase 6: Advanced Physics Features", () => {
       const iscos = spins.map((a) => calculateISCO_shader(M, a));
 
       for (let i = 1; i < iscos.length; i++) {
-        expect(iscos[i]).toBeLessThan(iscos[i - 1]);
+        expect(iscos[i] ?? Infinity).toBeLessThan(iscos[i - 1] ?? Infinity);
       }
     });
 

@@ -157,6 +157,7 @@ export class BenchmarkController {
     const elapsed = Date.now() - this.testStartTime;
     const progress = Math.min(elapsed / this.TEST_DURATION_MS, 1.0);
     const currentPreset = this.PRESETS_TO_TEST[this.currentPresetIndex];
+    if (!currentPreset) return null;
 
     // Notify progress
     if (this.progressCallback) {
@@ -203,7 +204,7 @@ export class BenchmarkController {
     ) {
       return null;
     }
-    return this.PRESETS_TO_TEST[this.currentPresetIndex];
+    return this.PRESETS_TO_TEST[this.currentPresetIndex] ?? null;
   }
 
   /**
@@ -239,6 +240,7 @@ export class BenchmarkController {
     }
 
     const presetName = this.PRESETS_TO_TEST[this.currentPresetIndex];
+    if (!presetName) return;
 
     // Phase 2: Use incremental statistics (O(1) finalization)
     const averageFPS = this.fpsSum / this.fpsCount;

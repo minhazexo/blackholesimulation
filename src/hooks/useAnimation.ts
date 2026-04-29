@@ -294,13 +294,18 @@ export function useAnimation(
         if (physicsResult) {
           // Layout: [0..2: pos, 8..11: orientation]
           const cam = physicsResult.camera;
-          uniformBatcher.current.set3f("u_camPos", cam[0], cam[1], cam[2]);
+          uniformBatcher.current.set3f(
+            "u_camPos",
+            cam[0] ?? 0,
+            cam[1] ?? 0,
+            cam[2] ?? 0,
+          );
           uniformBatcher.current.set4f(
             "u_camQuat",
-            cam[8],
-            cam[9],
-            cam[10],
-            cam[11],
+            cam[8] ?? 0,
+            cam[9] ?? 0,
+            cam[10] ?? 0,
+            cam[11] ?? 1,
           );
         }
         // -------------------------------------
