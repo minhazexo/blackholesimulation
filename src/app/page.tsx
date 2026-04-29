@@ -47,6 +47,20 @@ const SpacetimeCanvas = dynamic(
   () => import("@/components/spacetime").then((mod) => mod.SpacetimeCanvas),
   { ssr: false },
 );
+const HawkingSpectrumPanel = dynamic(
+  () =>
+    import("@/components/quantum/HawkingSpectrumPanel").then(
+      (mod) => mod.HawkingSpectrumPanel,
+    ),
+  { ssr: false },
+);
+const BekensteinHawkingReadout = dynamic(
+  () =>
+    import("@/components/quantum/BekensteinHawkingReadout").then(
+      (mod) => mod.BekensteinHawkingReadout,
+    ),
+  { ssr: false },
+);
 
 import { useCamera } from "@/hooks/useCamera";
 import { useBenchmark } from "@/hooks/useBenchmark";
@@ -141,6 +155,16 @@ const App = () => {
   // Phase 9.5: Debug Overlay
   const [showDebug, setShowDebug] = useState(false);
   const toggleDebug = useCallback(() => setShowDebug((prev) => !prev), []);
+
+  // Quantum visualization toggle (illustrative, per ADR-0026). Default
+  // off; the operator opts in via the keyboard shortcut Q. The panels
+  // render Bekenstein-Hawking thermodynamics (entropy, area, T_H,
+  // evaporation lifetime) and the Planck-shape Hawking spectrum.
+  const [showQuantum, setShowQuantum] = useState(false);
+  // Stellar-mass default for the readout: 10 M_sun gives T_H ≈ 6e-9 K
+  // and a plot peak in the radio band, which makes the operator's
+  // "quantum effects" overlay visually meaningful at any spin.
+  const QUANTUM_DEMO_MASS_KG = 10 * 1.98847e30;
 
   // Phase 7: Keyboard shortcuts for accessibility
   useKeyboard({
@@ -765,6 +789,38 @@ BibTeX:
         </AnimatePresence>
 
         <CinematicOverlay isCinematic={isCinematic} zoom={params.zoom} />
+
+        {showQuantum && (
+          <div className="absolute top-24 right-4 z-40 flex flex-col gap-2 w-72 max-w-[40vw] pointer-events-auto">
+            <button
+              type="button"
+              onClick={() => setShowQuantum(false)}
+              className="self-end text-[8px] uppercase tracking-[0.2em] text-white/50 hover:text-white/90 font-mono"
+              aria-label="Close quantum effects panel"
+            >
+              close ×
+            </button>
+            <BekensteinHawkingReadout
+              massKg={QUANTUM_DEMO_MASS_KG}
+              spinStar={params.spin}
+            />
+            <HawkingSpectrumPanel
+              massKg={QUANTUM_DEMO_MASS_KG}
+              spinStar={params.spin}
+            />
+          </div>
+        )}
+
+        {!showQuantum && (
+          <button
+            type="button"
+            onClick={() => setShowQuantum(true)}
+            className="absolute top-24 right-4 z-30 px-3 py-1.5 bg-black/30 border border-white/10 rounded-sm text-[9px] font-mono uppercase tracking-[0.2em] text-white/60 hover:text-white/90 hover:border-white/30 transition-colors"
+            aria-label="Open quantum effects visualization panel (illustrative)"
+          >
+            Quantum effects
+          </button>
+        )}
 
         <ControlPanel
           params={params}
