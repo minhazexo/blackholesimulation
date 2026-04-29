@@ -22,6 +22,9 @@
 //! enforces null normalisation H = 0). The trajectory primitive is
 //! its own change.
 
+use crate::geodesic::{
+    integrate, GeodesicKind, GeodesicState, IntegrationMethod, IntegrationOptions, Trajectory,
+};
 use crate::metric::{Kerr, Metric, Orbit};
 
 /// Bardeen-Press-Teukolsky 1972 specific energy of an equatorial
@@ -144,6 +147,52 @@ pub fn plunge_entry_state(metric: &Kerr, orbit: Orbit) -> PlungeEntryState {
 pub fn radiative_efficiency(metric: &Kerr, orbit: Orbit) -> f64 {
     let state = plunge_entry_state(metric, orbit);
     1.0 - state.energy
+}
+
+/// Integrate the timelike plunge trajectory from r_ISCO inward.
+///
+/// The infalling stream carries the conserved (E_ISCO, L_z_ISCO)
+/// from the marginally stable orbit. The initial state is built by
+/// dropping a small inward radial perturbation `dpr_seed` onto the
+/// circular orbit at r_ISCO so the orbit is no longer stable and the
+/// integrator can step inward.
+///
+/// The integrator is the existing adaptive RKF45 in timelike mode
+/// (renormalises to H = −1/2 every `renormalize_interval` steps).
+/// Termination reasons: horizon crossing (clean stop), max-steps
+/// budget (caller's `max_steps`), or normalization failure (the
+/// near-extremal case where r_ISCO is very close to r_+).
+pub fn plunge_trajectory(
+    metric: &Kerr,
+    orbit: Orbit,
+    dpr_seed: f64,
+    max_steps: usize,
+    record_path: bool,
+) -> Trajectory {
+    let entry = plunge_entry_state(metric, orbit);
+    let theta_eq = std::f64::consts::FRAC_PI_2;
+
+    // Equatorial circular initial state with conserved (E, L_z) from
+    // the ISCO. p_t = -E by sign convention; p_θ = 0; p_r seeded
+    // with a tiny inward perturbation so the orbit is not exactly
+    // marginal.
+    let initial = GeodesicState {
+        x: [0.0, entry.r_isco, theta_eq, 0.0],
+        p: [-entry.energy, -dpr_seed.abs(), 0.0, entry.angular_momentum],
+    };
+
+    let options = IntegrationOptions {
+        method: IntegrationMethod::AdaptiveRKF45,
+        tolerance: 1e-10,
+        initial_step: 1e-3,
+        max_steps,
+        escape_radius: 1.0e6,
+        renormalize_interval: 10,
+        record_path,
+        geodesic_kind: GeodesicKind::Timelike,
+    };
+
+    integrate(&initial, metric, &options)
 }
 
 /// Renderer-friendly emissivity envelope along the plunge path.

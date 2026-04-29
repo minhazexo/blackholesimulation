@@ -104,3 +104,67 @@ pub fn renormalize_null<M: Metric>(
 
     Ok(())
 }
+
+/// Renormalize momentum to strictly satisfy H = −1/2 (timelike-geodesic
+/// condition for unit rest mass). The Hamiltonian is identical in
+/// structure to the null case; only the constant term shifts:
+///
+///   (1/2) (A·p_r² + B·p_r + C) = −1/2   ⇒   A·p_r² + B·p_r + (C + 1) = 0
+///
+/// All other steps (root selection, rounding-band clamp, error
+/// reporting) match `renormalize_null`. The caller must rescale to a
+/// different rest mass μ by passing momentum in units of μ before
+/// calling and rescaling after.
+///
+/// # Errors
+///
+/// Returns `NormalizationError::NegativeDiscriminant` when the
+/// quadratic discriminant falls below `-ROUNDING_TOLERANCE`. Same
+/// semantics as `renormalize_null`: real drift, not rounding.
+pub fn renormalize_timelike<M: Metric>(
+    state: &mut GeodesicState,
+    metric: &M,
+) -> Result<(), NormalizationError> {
+    let r = state.x[1];
+    let theta = state.x[2];
+    let g_inv = metric.contravariant(r, theta);
+    let g = g_inv.as_array();
+
+    let p_t = state.p[0];
+    let p_r = state.p[1];
+    let p_th = state.p[2];
+    let p_ph = state.p[3];
+
+    let a_quad = g[5];
+    let b_quad = 2.0 * (g[1] * p_t + g[7] * p_ph);
+    let c_quad = g[0] * p_t * p_t
+        + g[10] * p_th * p_th
+        + g[15] * p_ph * p_ph
+        + 2.0 * g[3] * p_t * p_ph
+        + 1.0; // Timelike shift: H = −1/2 ⇒ C → C + 1.
+
+    if a_quad.abs() <= 1e-12 {
+        return Ok(());
+    }
+
+    let discriminant = b_quad * b_quad - 4.0 * a_quad * c_quad;
+
+    if discriminant < -ROUNDING_TOLERANCE {
+        return Err(NormalizationError::NegativeDiscriminant {
+            value: discriminant,
+        });
+    }
+
+    let safe_discriminant = discriminant.max(0.0);
+    let sqrt_d = safe_discriminant.sqrt();
+    let sol1 = (-b_quad + sqrt_d) / (2.0 * a_quad);
+    let sol2 = (-b_quad - sqrt_d) / (2.0 * a_quad);
+
+    state.p[1] = if (sol1 - p_r).abs() < (sol2 - p_r).abs() {
+        sol1
+    } else {
+        sol2
+    };
+
+    Ok(())
+}

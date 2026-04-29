@@ -17,7 +17,7 @@ mod common;
 
 use common::{DRIFT_THRESHOLD, STEP_COUNT};
 use gravitas::geodesic::{
-    integrate, GeodesicState, IntegrationMethod, IntegrationOptions, TerminationReason,
+    integrate, GeodesicKind, GeodesicState, IntegrationMethod, IntegrationOptions, TerminationReason,
 };
 use gravitas::invariants::compute_constants;
 use gravitas::metric::Kerr;
@@ -43,6 +43,7 @@ fn run_long_integration(spin: f64, l_z: f64) -> (f64, f64, f64) {
         escape_radius: 1.0e6,
         renormalize_interval: 10,
         record_path: false,
+        geodesic_kind: GeodesicKind::Null,
     };
 
     let traj = integrate(&initial, &metric, &options);

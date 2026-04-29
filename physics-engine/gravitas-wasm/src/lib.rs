@@ -523,6 +523,7 @@ impl PhysicsEngine {
             escape_radius: 1000.0,
             renormalize_interval: 10,
             record_path: false,
+            geodesic_kind: gravitas::geodesic::GeodesicKind::Null,
         };
 
         let trajectory = if use_kerr_schild {
