@@ -655,6 +655,15 @@ export function useCamera(
 
   const startCinematic = useCallback(
     (mode: "orbit" | "dive") => {
+      // Honor the user-agent reduced-motion preference: WCAG 2.2 SC 2.3.3
+      // requires non-essential motion to be opt-out. Cinematic auto-orbit
+      // is decorative; we silently no-op rather than override the setting.
+      if (
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        return;
+      }
       // 1. Clean up existing state (Force Stop any previous cinematic)
       stopCinematic();
 

@@ -15,6 +15,18 @@ interface TelemetryProps {
   budgetUsage?: number;
 }
 
+// Pads a number to a fixed total character count so HUD columns never shift
+// when integer-part width changes. Sign reserves one column either way.
+function fixedWidth(
+  value: number,
+  totalWidth: number,
+  decimals: number,
+): string {
+  const sign = value < 0 ? "-" : " ";
+  const body = Math.abs(value).toFixed(decimals);
+  return (sign + body).padStart(totalWidth, " ");
+}
+
 export const Telemetry = ({
   params,
   metrics,
@@ -47,14 +59,18 @@ export const Telemetry = ({
           },
           {
             label: "Horizon",
-            value: eventHorizonRadius.toFixed(2),
+            value: fixedWidth(eventHorizonRadius, 6, 2),
             unit: "Rs",
           },
           {
             label: "Redshift",
-            value: `z=${redshift.toFixed(2)}`,
+            value: `z=${fixedWidth(redshift, 6, 2)}`,
           },
-          { label: "Dilation", value: timeDilation.toFixed(3), unit: "x" },
+          {
+            label: "Dilation",
+            value: fixedWidth(timeDilation, 7, 3),
+            unit: "x",
+          },
         ].map((item, idx) => (
           <div key={idx} className="flex flex-col items-end">
             <span className="text-[7px] md:text-[8px] text-white/80 font-mono font-bold uppercase tracking-[0.2em] mb-0.5">
