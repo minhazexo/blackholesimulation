@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 
 interface IdentityHUDProps {
   isCinematic?: boolean;
-  cinematicMode?: "orbit" | "dive" | null;
+  cinematicMode?: "orbit" | "dive" | "viewpoint" | "viewpoints-tour" | null;
 }
 
 export const IdentityHUD = ({
@@ -21,6 +21,8 @@ export const IdentityHUD = ({
   if (isCinematicActive) {
     if (cinematicMode === "orbit") statusText = "Metric: Cinematic Orbit";
     if (cinematicMode === "dive") statusText = "Metric: Relativistic Infall";
+    if (cinematicMode === "viewpoint") statusText = "Metric: Viewpoint Frame";
+    if (cinematicMode === "viewpoints-tour") statusText = "Metric: Viewpoints Tour";
   }
 
   return (

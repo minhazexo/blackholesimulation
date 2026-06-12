@@ -36,6 +36,21 @@ export const PERFORMANCE_CONFIG = {
     mobileHardCap: "medium", // Forced max quality for mobile devices
   },
 
+  // Startup Loading / System Profile Calibration
+  // Runs once on first visit to determine optimal settings for the device.
+  startup: {
+    stressTestDurationMs: 2500, // 2.5s offscreen stress test
+    stressTestWarmupMs: 300,    // 300ms warmup before collecting samples
+    stressTestTargetFrames: 120, // Collect at most this many samples
+    minSamplesForReliable: 30,   // At least 30 samples for a valid measurement
+    // Quality threshold tiers (average FPS during stress test)
+    ultraThreshold: 55,   // ≥55 fps → ultra-quality
+    highThreshold: 40,    // ≥40 fps → high-quality
+    balancedThreshold: 25,// ≥25 fps → balanced
+    // Below balancedThreshold → maximum-performance
+    physicsInitTimeoutMs: 15000,
+  },
+
   // Ray Marching Budget (The Engine's "Gas Pedal")
   compute: {
     maxStepsDefault: 200, // Balanced default for ray steps

@@ -41,6 +41,7 @@ export const WebGLCanvas = ({
   const rendererRef = useRef<WebGLRenderer | null>(null);
   const paramsRef = useRef(params);
   const mouseRef = useRef(mouse);
+  const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<CanvasError | null>(null);
   const requestRef = useRef<number>(0);
 
@@ -79,7 +80,15 @@ export const WebGLCanvas = ({
   }, [mouse]);
 
   useEffect(() => {
-    if (!canvasRef.current || rendererRef.current) return;
+    // Window-level mouseup: ensures cursor-grabbing doesn't get stuck if
+    // the user releases the mouse button outside the canvas element.
+    const handleWindowUp = () => setIsDragging(false);
+    window.addEventListener("mouseup", handleWindowUp);
+
+    if (!canvasRef.current || rendererRef.current) {
+      // Still need to clean up even when returning early
+      return () => window.removeEventListener("mouseup", handleWindowUp);
+    }
 
     // Ensure canvas has initial size before renderer init
     const canvas = canvasRef.current;
@@ -102,6 +111,7 @@ export const WebGLCanvas = ({
     }
 
     return () => {
+      window.removeEventListener("mouseup", handleWindowUp);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       if (rendererRef.current) rendererRef.current.cleanup();
       // CRITICAL FIX: Must null the ref so React 18 Strict Mode's
@@ -164,10 +174,17 @@ export const WebGLCanvas = ({
     <>
       <canvas
         ref={canvasRef}
-        className="absolute top-0 left-0 w-full h-full z-0 cursor-move"
-        onMouseDown={onMouseDown}
+        className={`absolute top-0 left-0 w-full h-full z-0 ${isDragging ? "cursor-grabbing" : "cursor-grab"} select-none`}
+        onMouseDown={(e) => {
+          setIsDragging(true);
+          onMouseDown(e);
+        }}
         onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
+        onMouseUp={(e) => {
+          setIsDragging(false);
+          onMouseUp(e);
+        }}
+        onContextMenu={(e) => e.preventDefault()}
       />
 
       {error && (

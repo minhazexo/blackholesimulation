@@ -26,63 +26,111 @@ export class PhysicsBridge {
   private wasmControlView: Float32Array = new Float32Array(0);
   private wasmCameraView: Float32Array = new Float32Array(0);
   private wasmPhysicsView: Float32Array = new Float32Array(0);
+  private wasmSABPtr: number = 0;
 
   // Cached Int32Array view for Atomics (avoids per-frame allocation)
   private seqView: Int32Array | null = null;
   private lastSeenSequence: number = -1;
 
+  private readonly MAX_RETRIES = 3;
+
   public async initialize(): Promise<void> {
     if (this.initializationPromise) return this.initializationPromise;
 
-    this.initializationPromise = (async () => {
+    this.initializationPromise = this.initializeWithRetry();
+    return this.initializationPromise;
+  }
+
+  /**
+   * Initialize with automatic retry on failure.
+   * Uses exponential backoff: 1s, 2s, 4s between retries.
+   */
+  private async initializeWithRetry(): Promise<void> {
+    for (let attempt = 0; attempt <= this.MAX_RETRIES; attempt++) {
       try {
-        // eslint-disable-next-line no-console
-        console.log("PhysicsBridge: Initializing WASM Kernel...");
-
-        // Note: In Next.js, we need to handle both SSR and Client-side loading.
-        // The worker is the primary driver in production.
-        this.worker = new Worker(
-          new URL("../workers/physics.worker.ts", import.meta.url),
-          { type: "module" },
-        );
-
-        // Setup SharedArrayBuffer (SAB) for Zero-Copy Sync
-        // 2MB is enough for headers + several 512x512 LUTs
-        this.sab = new SharedArrayBuffer(2 * 1024 * 1024);
-        this.initializeViews();
-
-        // BUG FIX: Must send mass and spin, otherwise Rust receives NaN
-        this.worker.postMessage({
-          type: "INIT",
-          data: { sab: this.sab, mass: 1.0, spin: 0.9 },
-        });
-
-        return new Promise<void>((resolve, reject) => {
-          if (!this.worker) return reject("Worker failed to init");
-          this.worker.onmessage = (e) => {
-            if (e.data.type === "READY") {
-              // eslint-disable-next-line no-console
-              console.log("PhysicsBridge: Worker Ready.");
-              this.workerReady = true;
-              resolve();
-            } else if (e.data.type === "ERROR") {
-              reject(e.data.error);
-            }
-          };
-        });
+        await this.initializeWorker();
+        return; // Success
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.error("PhysicsBridge Fallback: Loading in main thread...", err);
-        // Fallback for environments where workers or SAB are disabled
-        const wasmModuleWrap = await import("blackhole-physics");
-        const wasmModule = await wasmModuleWrap.default();
-        this.wasmMemory = wasmModule.memory;
-        this.engine = new wasmModuleWrap.PhysicsEngine(1.0, 0.9);
-        this.initializeFallbackViews();
-      }
-    })();
+        console.warn(
+          `PhysicsBridge: Worker init attempt ${attempt + 1}/${this.MAX_RETRIES + 1} failed`,
+          err,
+        );
 
-    return this.initializationPromise;
+        if (attempt < this.MAX_RETRIES) {
+          // Exponential backoff: 1s, 2s, 4s
+          const delay = Math.pow(2, attempt) * 1000;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          // eslint-disable-next-line no-console
+          console.error(
+            "PhysicsBridge: All worker retries exhausted, falling back to main thread...",
+          );
+        }
+      }
+    }
+
+    // Fallback: load WASM directly in the main thread
+    try {
+      // eslint-disable-next-line no-console
+      console.log("PhysicsBridge Fallback: Loading in main thread...");
+      const wasmModuleWrap = await import("blackhole-physics");
+      const wasmModule = await wasmModuleWrap.default();
+      this.wasmMemory = wasmModule.memory;
+      this.engine = new wasmModuleWrap.PhysicsEngine(1.0, 0.9);
+      this.initializeFallbackViews();
+      this.workerReady = true;
+    } catch (fallbackErr) {
+      this.initializationPromise = null; // Allow re-initialization attempt
+      throw fallbackErr;
+    }
+  }
+
+  private async initializeWorker(): Promise<void> {
+    // eslint-disable-next-line no-console
+    console.log("PhysicsBridge: Initializing WASM Kernel...");
+
+    this.worker = new Worker(
+      new URL("../workers/physics.worker.ts", import.meta.url),
+      { type: "module" },
+    );
+
+    // Setup SharedArrayBuffer (SAB) for Zero-Copy Sync
+    // 2MB is enough for headers + several 512x512 LUTs
+    this.sab = new SharedArrayBuffer(2 * 1024 * 1024);
+    this.initializeViews();
+
+    // BUG FIX: Must send mass and spin, otherwise Rust receives NaN
+    this.worker.postMessage({
+      type: "INIT",
+      data: { sab: this.sab, mass: 1.0, spin: 0.9 },
+    });
+
+    return new Promise<void>((resolve, reject) => {
+      if (!this.worker) return reject("Worker failed to init");
+
+      const timeout = setTimeout(() => {
+        reject(new Error("Worker init timed out after 15s"));
+      }, 15000);
+
+      this.worker.onmessage = (e) => {
+        if (e.data.type === "READY") {
+          clearTimeout(timeout);
+          // eslint-disable-next-line no-console
+          console.log("PhysicsBridge: Worker Ready.");
+          this.workerReady = true;
+          resolve();
+        } else if (e.data.type === "ERROR") {
+          clearTimeout(timeout);
+          reject(e.data.error);
+        }
+      };
+
+      this.worker.onerror = (err) => {
+        clearTimeout(timeout);
+        reject(new Error(`Worker error event: ${err.message}`));
+      };
+    });
   }
 
   private initializeViews() {
@@ -95,20 +143,32 @@ export class PhysicsBridge {
 
   private initializeFallbackViews() {
     if (!this.engine || !this.wasmMemory) return;
-    const ptr = this.engine.get_sab_ptr();
+    this.wasmSABPtr = this.engine.get_sab_ptr();
+    this.rebindWasmViews();
+  }
+
+  /**
+   * Rebind WASM memory views. Must be called on every tick() because
+   * WebAssembly.Memory.buffer can be detached when memory.grow() is called
+   * inside the Rust kernel (e.g., during a large allocation), invalidating
+   * all existing TypedArray views.
+   */
+  private rebindWasmViews() {
+    if (!this.engine || !this.wasmMemory || !this.wasmSABPtr) return;
+    const buffer = this.wasmMemory.buffer;
     this.wasmControlView = new Float32Array(
-      this.wasmMemory.buffer,
-      ptr + OFFSETS.CONTROL * 4,
+      buffer,
+      this.wasmSABPtr + OFFSETS.CONTROL * 4,
       16,
     );
     this.wasmCameraView = new Float32Array(
-      this.wasmMemory.buffer,
-      ptr + OFFSETS.CAMERA * 4,
+      buffer,
+      this.wasmSABPtr + OFFSETS.CAMERA * 4,
       16,
     );
     this.wasmPhysicsView = new Float32Array(
-      this.wasmMemory.buffer,
-      ptr + OFFSETS.PHYSICS * 4,
+      buffer,
+      this.wasmSABPtr + OFFSETS.PHYSICS * 4,
       128,
     );
   }
@@ -202,6 +262,9 @@ export class PhysicsBridge {
 
     if (this.isReady() && this.engine) {
       // Main Thread Fallback path
+      // Rebind WASM views every tick to guard against memory.grow() detaching
+      // the underlying ArrayBuffer (issue 1.3).
+      this.rebindWasmViews();
       this.engine.tick_sab(dt);
 
       // Update shadowing caches from WASM memory

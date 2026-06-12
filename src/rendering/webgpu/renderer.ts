@@ -78,7 +78,7 @@ export class WebGPURenderer {
 
   // Render (Blit) Pipeline
   private renderPipeline: GPURenderPipeline | null = null;
-  private renderBindGroup: GPUBindGroup | null = null;
+  private renderBindGroups: GPUBindGroup[] = []; // Cached per-history-texture (ping-pong)
 
   // ATAA Resolve Pipeline
   private ataaPipeline: GPUComputePipeline | null = null;
@@ -294,7 +294,7 @@ export class WebGPURenderer {
       this.initTextures(width, height);
       // Invalidate bind groups to force recreation
       this.computeBindGroup = null;
-      this.renderBindGroup = null;
+      this.renderBindGroups = [];
     }
   }
 
@@ -379,17 +379,27 @@ export class WebGPURenderer {
     const nextHistTex = this.historyTextures[nextHistIdx];
     if (!nextHistTex) return;
 
-    // Update Blit Bind Group to use the resolved history texture
-    this.renderBindGroup = this.device.createBindGroup({
-      layout: this.renderPipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: this.sampler },
-        {
-          binding: 1,
-          resource: nextHistTex.createView(),
-        },
-      ],
-    });
+    // Cache render bind groups per history texture (ping-pong) so we don't
+    // call createBindGroup every frame — that's an anti-pattern that stalls
+    // the GPU submission pipeline. Only invalidated on resize.
+    if (this.renderBindGroups.length === 0 && hist0 && hist1) {
+      this.renderBindGroups = [
+        this.device.createBindGroup({
+          layout: this.renderPipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: this.sampler },
+            { binding: 1, resource: hist0.createView() },
+          ],
+        }),
+        this.device.createBindGroup({
+          layout: this.renderPipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: this.sampler },
+            { binding: 1, resource: hist1.createView() },
+          ],
+        }),
+      ];
+    }
 
     // 3. Dispatch Passes
     const commandEncoder = this.device.createCommandEncoder();
@@ -430,7 +440,7 @@ export class WebGPURenderer {
     });
 
     renderPass.setPipeline(this.renderPipeline);
-    renderPass.setBindGroup(0, this.renderBindGroup);
+    renderPass.setBindGroup(0, this.renderBindGroups[nextHistIdx] ?? this.renderBindGroups[0]!);
     renderPass.draw(6);
     renderPass.end();
 

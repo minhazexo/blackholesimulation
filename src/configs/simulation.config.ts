@@ -117,8 +117,8 @@ export const SIMULATION_CONFIG = {
 
   zoom: {
     default: 30.0,
-    min: 1.5, // Close orbit (Deep Dive limit)
-    max: 100.0, // Far observer
+    min: 0.5, // Deep dive — skims just outside the event horizon
+    max: 500.0, // Wide establishing shot — full disk + surrounding starfield
     step: 0.5,
     unit: "Rs", // Schwarzschild Radii
     decimals: 1,
@@ -127,7 +127,7 @@ export const SIMULATION_CONFIG = {
 
   // System Kinetics
   autoSpin: {
-    default: 0.005, // Default to static for accuracy
+    default: 0.001, // Slow meditative pan (~100s per full orbit at 60fps)
     min: -0.1,
     max: 0.1,
     step: 0.001,
@@ -183,6 +183,17 @@ export const SIMULATION_CONFIG = {
     unit: "\u03B7", // Eta
     decimals: 1,
     label: "Lensing Str",
+  },
+
+  // Star Density Control
+  starDensity: {
+    default: 1.0,
+    min: 0.0,
+    max: 2.0,
+    step: 0.1,
+    unit: "x",
+    decimals: 1,
+    label: "Star Density",
   },
 
   // System Optimization

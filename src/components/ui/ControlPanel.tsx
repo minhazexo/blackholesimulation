@@ -19,10 +19,12 @@ import {
   Disc,
   Sparkles,
   Layers,
+  Camera,
 } from "lucide-react";
 import { UserProfile } from "./UserProfile";
 import { type SimulationParams, DEFAULT_PARAMS } from "@/types/simulation";
 import { SIMULATION_CONFIG } from "@/configs/simulation.config";
+import { VIEWPOINTS } from "@/configs/viewpoints";
 import { usePhysicsState } from "@/hooks/usePhysicsState";
 import { clampAndValidate } from "@/utils/validation";
 import { usePresets } from "@/hooks/usePresets";
@@ -43,8 +45,14 @@ interface ControlPanelProps {
   isCompact: boolean;
   onCompactChange: (compact: boolean) => void;
   onStartCinematic?: (path: "orbit" | "dive") => void;
+  onStartViewpoint?: (viewpointId: string) => void;
+  onStartAllViewpointsTour?: () => void;
   onResetCamera?: () => void;
   isCinematic?: boolean;
+  cinematicMode?: "orbit" | "dive" | "viewpoint" | "viewpoints-tour" | null;
+  currentViewpointId?: string | null;
+  tourIndex?: number;
+  tourTotal?: number;
 }
 
 const PRESETS: { id: PresetName; label: string }[] = [
@@ -164,8 +172,14 @@ export const ControlPanel = ({
   isCompact,
   onCompactChange,
   onStartCinematic,
+  onStartViewpoint,
+  onStartAllViewpointsTour,
   onResetCamera,
   isCinematic,
+  cinematicMode,
+  currentViewpointId,
+  tourIndex,
+  tourTotal,
 }: ControlPanelProps) => {
   const [isResetting, setIsResetting] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -668,13 +682,32 @@ export const ControlPanel = ({
                                   p.id,
                                 ),
                               )}
-                            </div>
-                            <ControlSlider
-                              label={SIMULATION_CONFIG.renderScale.label}
-                              value={
-                                params.renderScale ??
-                                SIMULATION_CONFIG.renderScale.default
-                              }
+                            </div>                              <ControlSlider
+                                label={SIMULATION_CONFIG.starDensity.label}
+                                value={
+                                  params.starDensity ??
+                                  SIMULATION_CONFIG.starDensity.default
+                                }
+                                min={SIMULATION_CONFIG.starDensity.min}
+                                max={SIMULATION_CONFIG.starDensity.max}
+                                step={SIMULATION_CONFIG.starDensity.step}
+                                onChange={(v) =>
+                                  handleParamChange({
+                                    ...params,
+                                    starDensity: v,
+                                  })
+                                }
+                                unit={SIMULATION_CONFIG.starDensity.unit}
+                                decimals={
+                                  SIMULATION_CONFIG.starDensity.decimals
+                                }
+                              />
+                              <ControlSlider
+                                label={SIMULATION_CONFIG.renderScale.label}
+                                value={
+                                  params.renderScale ??
+                                  SIMULATION_CONFIG.renderScale.default
+                                }
                               min={SIMULATION_CONFIG.renderScale.min}
                               max={SIMULATION_CONFIG.renderScale.max}
                               step={SIMULATION_CONFIG.renderScale.step}
@@ -825,9 +858,9 @@ export const ControlPanel = ({
 
                           {/* Right Column Stack: Cinematic Utility */}
                           <div className="space-y-4">
-                            {/* Cinematic Tools - Always Active for Instant Switching */}
+                            {/* Cinematic Tours - Always Active */}
                             <div className="p-3.5 sm:p-5 bg-white/[0.02] border border-white/5 rounded-2xl">
-                              <SectionHeader label="Cinematic Tools" />
+                              <SectionHeader label="Cinematic Tours" />
                               <div className="grid grid-cols-2 gap-3">
                                 <button
                                   onClick={() => onStartCinematic?.("orbit")}
@@ -841,6 +874,99 @@ export const ControlPanel = ({
                                 >
                                   Infall Dive
                                 </button>
+                              </div>
+                            </div>
+
+                            {/* Viewpoints Tour — extra dedicated section */}
+                            <div className="p-3.5 sm:p-5 bg-white/[0.02] border border-white/5 rounded-2xl">
+                              <SectionHeader label="Viewpoint Tour" />
+                              <div className="flex flex-col gap-3">
+                                <button
+                                  onClick={() =>
+                                    onStartAllViewpointsTour?.()
+                                  }
+                                  disabled={
+                                    cinematicMode === "viewpoints-tour"
+                                  }
+                                  className={`w-full py-2.5 px-4 rounded-xl border transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                                    cinematicMode === "viewpoints-tour"
+                                      ? "bg-white/15 text-white border-white/30 shadow-[0_0_12px_rgba(255,255,255,0.1)]"
+                                      : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                                  }`}
+                                >
+                                  <Camera className="w-3 h-3" />
+                                  <span className="text-[8px] font-black uppercase tracking-[0.2em]">
+                                    {cinematicMode === "viewpoints-tour"
+                                      ? "Tour Active"
+                                      : "Tour All Viewpoints"}
+                                  </span>
+                                </button>
+
+                                {/* Tour progress when active */}
+                                {cinematicMode === "viewpoints-tour" &&
+                                  tourTotal !== undefined &&
+                                  tourIndex !== undefined && (
+                                    <div className="flex items-center gap-3 px-2">
+                                      <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-white/40 rounded-full transition-all duration-500"
+                                          style={{
+                                            width: `${((tourIndex + 1) / tourTotal) * 100}%`,
+                                          }}
+                                        />
+                                      </div>
+                                      <span className="text-[7px] font-mono text-white/40 whitespace-nowrap">
+                                        {tourIndex + 1}/{tourTotal}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                <p className="text-[6.5px] text-white/20 uppercase tracking-[0.15em] leading-relaxed">
+                                  Automatically visits every pre-defined
+                                  viewpoint, dwelling for 10 seconds each.
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Viewpoints Grid */}
+                            <div className="p-3.5 sm:p-5 bg-white/[0.02] border border-white/5 rounded-2xl">
+                              <SectionHeader label="Viewpoints" />
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {VIEWPOINTS.map((vp) => {
+                                  const isActive =
+                                    (cinematicMode === "viewpoint" ||
+                                      cinematicMode === "viewpoints-tour") &&
+                                    vp.id === currentViewpointId;
+                                  return (
+                                    <button
+                                      key={vp.id}
+                                      onClick={() =>
+                                        onStartViewpoint?.(vp.id)
+                                      }
+                                      className={`group relative py-1.5 px-2 rounded-lg border text-[7px] uppercase tracking-wider transition-all duration-300 active:scale-95 text-left leading-tight ${
+                                        isActive
+                                          ? `bg-white/15 text-white border-white/40 shadow-[0_0_10px_rgba(255,255,255,0.15)]`
+                                          : `bg-white/[0.04] text-white/60 border-white/[0.06] hover:bg-white/[0.1] hover:border-white/20 hover:text-white`
+                                      }`}
+                                      style={
+                                        isActive
+                                          ? {
+                                              borderColor: `hsla(${vp.hue}, 60%, 55%, 0.5)`,
+                                              boxShadow: `0 0 12px hsla(${vp.hue}, 60%, 45%, 0.15)`,
+                                            }
+                                          : {}
+                                      }
+                                      title={vp.description}
+                                    >
+                                      <span className="font-black tracking-[0.15em]">
+                                        {vp.name}
+                                      </span>
+                                      {isActive && (
+                                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_4px_rgba(255,255,255,0.5)]" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
                           </div>

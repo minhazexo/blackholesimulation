@@ -95,10 +95,13 @@ export class WebGLRenderer {
     this.width = canvas.width;
     this.height = canvas.height;
 
-    this.bloomManager = new BloomManager(gl);
+    // Thread the float-framebuffer capability flag so bloom/TAA managers
+    // can downgrade from RGBA16F to RGBA8 on adapters without
+    // EXT_color_buffer_float (Safari ≤16, some mobile drivers).
+    this.bloomManager = new BloomManager(gl, undefined, this.hasFloatFramebuffer);
     this.bloomManager.initialize(this.width, this.height);
 
-    this.reprojectionManager = new ReprojectionManager(gl);
+    this.reprojectionManager = new ReprojectionManager(gl, this.hasFloatFramebuffer);
     this.reprojectionManager.resize(this.width, this.height);
 
     this.initTextures();
@@ -367,6 +370,11 @@ export class WebGLRenderer {
     this.uniformBatcher.set1f(
       "u_disk_density",
       params.diskDensity ?? SIMULATION_CONFIG.diskDensity.default,
+    );
+
+    this.uniformBatcher.set1f(
+      "u_star_density",
+      params.starDensity ?? SIMULATION_CONFIG.starDensity.default,
     );
 
     // THERMODYNAMICS FIX: T ~ M^-1/4 (Shakura-Sunyaev)

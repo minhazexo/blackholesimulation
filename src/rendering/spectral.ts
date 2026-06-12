@@ -2,6 +2,10 @@ import { physicsBridge } from "@/engine/physics-bridge";
 import { createTextureFromData } from "@/utils/webgl-utils";
 
 /**
+ * @deprecated This class is never wired into the render pipeline.
+ * LUT creation is handled by WebGLRenderer.syncLUTs() in worker mode
+ * or the main-thread WASM fallback. See issues 2.2/3.1.
+ *
  * SpectralManager: Handles the generation and lifecycle of the Spectral LUT.
  *
  * This component executes Phase 1.1 of the Horizon Gold implementation plan.

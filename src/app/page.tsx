@@ -73,34 +73,49 @@ import { usePresets } from "@/hooks/usePresets";
 import { type SimulationParams, DEFAULT_PARAMS } from "@/types/simulation";
 import type { PerformanceMetrics } from "@/performance/monitor";
 import type { DebugMetrics } from "@/components/ui/DebugOverlay";
-import { DEFAULT_FEATURES, type PresetName } from "@/types/features";
+import { getPreset, type PresetName } from "@/types/features";
 import { settingsStorage } from "@/storage/settings";
 import { useWebGPUSupport } from "@/hooks/useWebGPUSupport";
+import { useSystemProfile } from "@/hooks/useSystemProfile";
+import { SystemProfileScreen } from "@/components/ui/SystemProfileScreen";
+import { WasmLoadingOverlay } from "@/components/ui/WasmLoadingOverlay";
 
 const App = () => {
-  const { isMobile, getMobileFeatures } = useMobileOptimization();
+  // ── System Profile (Root-level loading gate) ──
+  // Runs hardware detection, stress test, and preset recommendation
+  // before the main canvas mounts.
+  const { profile, stageInfo, isReady: profileReady } = useSystemProfile();
+
+  const { isMobile } = useMobileOptimization();
   const { applyPreset } = usePresets();
   const { isSupported: isWebGPUSupported } = useWebGPUSupport();
   const hardwareSupport = useHardwareSupport();
 
   const [params, setParams] = useState<SimulationParams>(() => {
-    // Forced Config Authority: Ignore local storage to respect simulation.config.ts defaults
-    let initialFeatures = DEFAULT_FEATURES;
-    let initialPreset: PresetName = "ultra-quality";
-
-    if (isMobile) {
-      initialFeatures = getMobileFeatures();
-      initialPreset = "balanced";
-    }
-
+    // Start with conservative defaults until the system profile
+    // completes and recommends the optimal preset.
+    const balancedFeatures = getPreset("balanced");
     return {
       ...DEFAULT_PARAMS,
-      quality: initialFeatures.rayTracingQuality,
-      features: initialFeatures,
-      performancePreset: initialPreset,
-      adaptiveResolution: false,
+      quality: balancedFeatures.rayTracingQuality,
+      features: balancedFeatures,
+      performancePreset: "balanced",
+      adaptiveResolution: true,
     };
   });
+
+  // When the system profile completes, apply the recommended preset.
+  // This overwrites the conservative defaults above.
+  useEffect(() => {
+    if (profileReady && profile.recommendedFeatures) {
+      setParams((prev) => ({
+        ...prev,
+        quality: profile.recommendedFeatures.rayTracingQuality,
+        features: profile.recommendedFeatures,
+        performancePreset: profile.recommendedPreset,
+      }));
+    }
+  }, [profileReady, profile.recommendedPreset, profile.recommendedFeatures]);
 
   const [showUI, setShowUI] = useState(true);
   const [metrics, setMetrics] = useState<PerformanceMetrics | undefined>(
@@ -108,6 +123,10 @@ const App = () => {
   );
   const [isCompact, setIsCompact] = useState(true);
   const [isInfoExpanded, setIsInfoExpanded] = useState(false);
+
+  // WASM compilation loading state. Starts true, flips to false when
+  // physicsBridge.isReady() confirms the worker + WASM are operational.
+  const [physicsReady, setPhysicsReady] = useState(false);
 
   // Phase 5: Extracted benchmark logic into dedicated hook
   const {
@@ -147,9 +166,15 @@ const App = () => {
     handleTouchEnd,
     nudgeCamera,
     startCinematic,
+    startViewpoint,
+    startAllViewpointsTour,
     resetCamera,
     isCinematic,
     cinematicMode,
+    currentViewpointId,
+    currentViewpointDef,
+    tourIndex,
+    tourTotal,
   } = useCamera(params, setParams);
 
   // Phase 9.5: Debug Overlay
@@ -217,11 +242,48 @@ const App = () => {
     physicsBridge.ensureInitialized().catch((err: any) => {
       // eslint-disable-next-line no-console
       console.error("Critical Physics Initialization Failure:", err);
+      // Dismiss loading overlay on failure so the user sees the canvas
+      // (which falls back to Schwarzschild approximations).
+      setPhysicsReady(true);
     });
+
+    // Safety timeout: dismiss loading overlay after 15s even if WASM
+    // fails silently, so the user can interact with the canvas in
+    // fallback mode rather than being trapped at a spinner.
+    const safetyTimeout = setTimeout(() => setPhysicsReady(true), 15000);
+
+    // Poll physicsBridge.isReady() so the loading overlay can disappear
+    // once the worker acknowledges WASM initialization.
+    const pollInterval = setInterval(() => {
+      if (physicsBridge.isReady()) {
+        setPhysicsReady(true);
+        clearInterval(pollInterval);
+        clearTimeout(safetyTimeout);
+      }
+    }, 200);
+
+    // Wire visibility listener and capture its teardown function so it
+    // is cleaned up on unmount (fixes issue 2.4: event listener leak).
+    const detachVisibility = physicsBridge.attachVisibilityListener();
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(safetyTimeout);
+      detachVisibility();
+    };
   }, [isWebGPUSupported]);
+
+  // No return until profile is ready — show system profile loading screen
+  if (!profileReady) {
+    return <SystemProfileScreen stageInfo={stageInfo} />;
+  }
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden select-none font-sans text-white">
+      {/* WASM compilation loading overlay. Hides once the physics bridge
+          acknowledges the worker + Rust kernel are operational. */}
+      <WasmLoadingOverlay visible={!physicsReady} />
+
       {(forceShowCompat ||
         (hardwareSupport.isReady && !hardwareSupport.webgl)) && (
         <CompatibilityHUD />
@@ -261,8 +323,6 @@ const App = () => {
             onMetricsUpdate={setMetrics}
           />
         )}
-
-        <div className="absolute inset-0 pointer-events-none z-10 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.6)_100%)]" />
 
         {/* ENTERPRISE-GRADE SEMANTIC CONTENT LAYER (High-Density Keyword Hub) */}
         <section className="sr-only" aria-hidden="false" id="physics-guide">
@@ -788,7 +848,14 @@ BibTeX:
           )}
         </AnimatePresence>
 
-        <CinematicOverlay isCinematic={isCinematic} zoom={params.zoom} />
+        <CinematicOverlay
+          isCinematic={isCinematic}
+          zoom={params.zoom}
+          cinematicMode={cinematicMode}
+          currentViewpointDef={currentViewpointDef}
+          tourIndex={tourIndex}
+          tourTotal={tourTotal}
+        />
 
         {showQuantum && (
           <div className="absolute top-24 right-4 z-40 flex flex-col gap-2 w-72 max-w-[40vw] pointer-events-auto">
@@ -833,8 +900,14 @@ BibTeX:
           onCancelBenchmark={cancelBenchmark}
           isBenchmarkRunning={isBenchmarkRunning}
           onStartCinematic={startCinematic}
+          onStartViewpoint={startViewpoint}
+          onStartAllViewpointsTour={startAllViewpointsTour}
           onResetCamera={resetCamera}
           isCinematic={isCinematic}
+          cinematicMode={cinematicMode}
+          currentViewpointId={currentViewpointId}
+          tourIndex={tourIndex}
+          tourTotal={tourTotal}
         />
 
         <SimulationInfo

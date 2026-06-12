@@ -3,6 +3,7 @@ import { clampAndValidate, isValidNumber } from "@/utils/validation";
 import type { MouseState, SimulationParams } from "@/types/simulation";
 import { SCHWARZSCHILD_RADIUS_SOLAR } from "@/physics/constants";
 import { SIMULATION_CONFIG } from "@/configs/simulation.config";
+import { VIEWPOINTS, getViewpoint } from "@/configs/viewpoints";
 // Geometric Units: G = c = 1
 
 /**
@@ -29,7 +30,7 @@ export interface CameraState {
  */
 interface CinematicState {
   active: boolean;
-  mode: "orbit" | "dive" | null;
+  mode: "orbit" | "dive" | "viewpoint" | "viewpoints-tour" | null;
   startTime: number;
   lastTime: number; // For physics integration (dt)
   startParams: {
@@ -43,6 +44,24 @@ interface CinematicState {
   // Recovery phase: smooth interpolation back to origin after cinematic ends
   recovering: boolean;
   recoverStartTime: number;
+  // --- Viewpoint flight state ---
+  viewpointId?: string;
+  /** Flying = interpolating to target; Dwelling = at target with characteristic animation */
+  viewpointPhase?: "flying" | "dwelling";
+  viewpointStartParams?: { theta: number; phi: number; zoom: number };
+  viewpointTargetParams?: { theta: number; phi: number; zoom: number };
+  viewpointPhaseStartTime?: number;
+  viewpointAnimType?: "orbit" | "drift" | "still";
+  viewpointAnimSpeed?: number;
+  // --- Viewpoints Tour state ---
+  /** Ordered list of viewpoint IDs for the auto-tour */
+  tourViewpointIds?: string[];
+  /** Current index into tourViewpointIds */
+  tourIndex?: number;
+  /** Total number of viewpoints in this tour */
+  tourTotal?: number;
+  /** Duration (seconds) each viewpoint dwells before advancing */
+  tourDwellDuration?: number;
 }
 
 /**
@@ -56,8 +75,8 @@ export interface ViewportDimensions {
 
 // Constants for camera positioning
 const DEFAULT_ZOOM = SIMULATION_CONFIG.zoom.default;
-const MIN_ZOOM = 2.5;
-const MAX_ZOOM = 50.0;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 500.0;
 const FOV_DEGREES = 45;
 const TARGET_VIEWPORT_COVERAGE = 0.7; // 70% of viewport (60-80% range)
 const ACCRETION_DISK_OUTER_RADIUS_MULTIPLIER = 12.0; // Outer disk is ~12x event horizon
@@ -155,11 +174,19 @@ export function useCamera(
   );
 
   // Cinematic State (UI Sync)
-  // Cinematic State (UI Sync)
   const [isCinematic, setIsCinematic] = useState(false);
-  const [cinematicMode, setCinematicMode] = useState<"orbit" | "dive" | null>(
-    null,
-  );
+  const [cinematicMode, setCinematicMode] = useState<
+    "orbit" | "dive" | "viewpoint" | "viewpoints-tour" | null
+  >(null);
+  const [currentViewpointId, setCurrentViewpointId] = useState<
+    string | null
+  >(null);
+  const currentViewpointDef = currentViewpointId
+    ? getViewpoint(currentViewpointId)
+    : null;
+  // Tour progress state
+  const [tourIndex, setTourIndex] = useState(0);
+  const [tourTotal, setTourTotal] = useState(0);
 
   const mouse = useMemo<MouseState>(() => {
     // Normalize derived state from the REACT state (for rendering UI/Uniforms)
@@ -188,6 +215,17 @@ export function useCamera(
     angularMomentum: 0,
     recovering: false,
     recoverStartTime: 0,
+    viewpointId: undefined,
+    viewpointPhase: undefined,
+    viewpointStartParams: undefined,
+    viewpointTargetParams: undefined,
+    viewpointPhaseStartTime: undefined,
+    viewpointAnimType: undefined,
+    viewpointAnimSpeed: undefined,
+    tourViewpointIds: undefined,
+    tourIndex: undefined,
+    tourTotal: undefined,
+    tourDwellDuration: undefined,
   });
 
   const paramsRef = useRef(params);
@@ -268,7 +306,188 @@ export function useCamera(
         // --- CINEMATIC MODE: DIRECTOR'S CUT ---
         const t = (now - cinematicRef.current.startTime) * 0.001;
 
-        if (cinematicRef.current.mode === "orbit") {
+        if (
+          cinematicRef.current.mode === "viewpoint" ||
+          cinematicRef.current.mode === "viewpoints-tour"
+        ) {
+          // ============================================================
+          //  VIEWPOINT: FLY-TO-AND-DWELL
+          //  Phase 1 — Fly: smooth 4s interpolation to target position
+          //  Phase 2 — Dwell: characteristic animation (orbit/drift/still)
+          // ============================================================
+          const vp = cinematicRef.current;
+
+          if (vp.viewpointPhase === "flying") {
+            const FLY_DURATION = 4.0;
+            const elapsed =
+              (now - (vp.viewpointPhaseStartTime ?? now)) * 0.001;
+            const progress = Math.min(elapsed / FLY_DURATION, 1.0);
+
+            // Quartic ease-in-out: smooth acceleration then deceleration
+            const ease =
+              progress < 0.5
+                ? 8 * progress * progress * progress * progress
+                : 1 -
+                  Math.pow(-2 * progress + 2, 4) / 2;
+
+            const start = vp.viewpointStartParams!;
+            const target = vp.viewpointTargetParams!;
+
+            // Theta: shortest angular path
+            let thetaDiff =
+              ((target.theta - start.theta + Math.PI) % (2 * Math.PI)) -
+              Math.PI;
+            if (thetaDiff < -Math.PI) thetaDiff += 2 * Math.PI;
+            state.theta = start.theta + thetaDiff * ease;
+
+            // Phi: direct linear interpolation (no wrapping needed)
+            state.phi =
+              start.phi + (target.phi - start.phi) * ease;
+
+            // Zoom: exponential-like interpolation for natural feel
+            const zoomRatio = target.zoom / Math.max(start.zoom, 0.01);
+            const currentZoom =
+              start.zoom * Math.pow(zoomRatio, ease);
+
+            // Apply zoom smoothly
+            if (
+              Math.abs(currentZoom - paramsRef.current.zoom) > 0.001
+            ) {
+              setParams((prev) => ({
+                ...prev,
+                zoom: clampAndValidate(
+                  currentZoom,
+                  MIN_ZOOM,
+                  MAX_ZOOM,
+                  prev.zoom,
+                ),
+              }));
+            }
+
+            // Clamp phi
+            state.phi = Math.max(
+              0.001,
+              Math.min(Math.PI - 0.001, state.phi),
+            );
+
+            // Transition to dwell phase
+            if (progress >= 1.0) {
+              vp.viewpointPhase = "dwelling";
+              vp.viewpointPhaseStartTime = now;
+            }
+          } else if (vp.viewpointPhase === "dwelling") {
+            // Dwell: apply the viewpoint's characteristic animation
+            const dwellT =
+              (now - (vp.viewpointPhaseStartTime ?? now)) * 0.001;
+
+            if (vp.viewpointAnimType === "orbit") {
+              // Slow, majestic orbit
+              const speed = vp.viewpointAnimSpeed ?? 0.1;
+              state.theta += dt * speed;
+
+              // Subtle breathing oscillation
+              const breathe = Math.sin(dwellT * 0.5) * 0.1;
+              setParams((prev) => {
+                const targetZoom = prev.zoom + breathe * 0.008;
+                return {
+                  ...prev,
+                  zoom: clampAndValidate(
+                    targetZoom,
+                    MIN_ZOOM,
+                    MAX_ZOOM,
+                    prev.zoom,
+                  ),
+                };
+              });
+
+              // Micro-wobble for organic feel (like the orbit tour)
+              state.theta +=
+                Math.sin(dwellT * 0.31) * 0.003 +
+                Math.cos(dwellT * 0.17) * 0.002;
+              state.phi +=
+                Math.cos(dwellT * 0.23) * 0.002 +
+                Math.sin(dwellT * 0.41) * 0.001;
+            } else if (vp.viewpointAnimType === "drift") {
+              // Gentle, meditative drift
+              state.theta += Math.sin(dwellT * 0.2) * 0.004;
+              state.phi += Math.cos(dwellT * 0.15) * 0.003;
+
+              // Very subtle zoom pulse
+              const pulse = Math.sin(dwellT * 0.3) * 0.002;
+              setParams((prev) => ({
+                ...prev,
+                zoom: clampAndValidate(
+                  prev.zoom + pulse,
+                  MIN_ZOOM,
+                  MAX_ZOOM,
+                  prev.zoom,
+                ),
+              }));
+            }
+            // type === "still": no camera animation, perfectly static
+
+            // ── Viewpoints Tour: advance to next viewpoint after dwell ──
+            if (
+              cinematicRef.current.mode === "viewpoints-tour" &&
+              vp.viewpointPhase === "dwelling" &&
+              vp.tourViewpointIds !== undefined &&
+              vp.tourIndex !== undefined &&
+              vp.tourTotal !== undefined
+            ) {
+              const vpDwellDuration = vp.tourDwellDuration ?? 10.0;
+              const dwellElapsed =
+                (now - (vp.viewpointPhaseStartTime ?? now)) * 0.001;
+
+              if (dwellElapsed >= vpDwellDuration) {
+                // Advance to next viewpoint
+                const nextIndex = vp.tourIndex + 1;
+
+                if (nextIndex >= vp.tourTotal) {
+                  // Tour complete → recover to start
+                  cinematicRef.current.active = false;
+                  cinematicRef.current.mode = null;
+                  cinematicRef.current.recovering = true;
+                  cinematicRef.current.recoverStartTime = now;
+                  setIsCinematic(false);
+                  setCinematicMode(null);
+                  setCurrentViewpointId(null);
+                } else {
+                  // Transition to next viewpoint
+                  const nextVpId = vp.tourViewpointIds[nextIndex];
+                  if (nextVpId) {
+                    const nextVpDef = getViewpoint(nextVpId);
+                    if (nextVpDef) {
+                      vp.tourIndex = nextIndex;
+                      setTourIndex(nextIndex);
+                      vp.viewpointId = nextVpDef.id;
+                      setCurrentViewpointId(nextVpDef.id);
+                      vp.viewpointPhase = "flying";
+                      vp.viewpointPhaseStartTime = now;
+                      vp.viewpointStartParams = {
+                        theta: state.theta,
+                        phi: state.phi,
+                        zoom: paramsRef.current.zoom,
+                      };
+                      vp.viewpointTargetParams = {
+                        theta: nextVpDef.camera.theta,
+                        phi: nextVpDef.camera.phi,
+                        zoom: nextVpDef.camera.zoom,
+                      };
+                      vp.viewpointAnimType = nextVpDef.animation.type;
+                      vp.viewpointAnimSpeed =
+                        nextVpDef.animation.speed ?? 0.1;
+                    }
+                  }
+                }
+              }
+            }
+
+            state.phi = Math.max(
+              0.001,
+              Math.min(Math.PI - 0.001, state.phi),
+            );
+          }
+        } else if (cinematicRef.current.mode === "orbit") {
           // ============================================================
           //  ORBIT TOUR: "THE GRAND SURVEY"
           //  4-Act cinematic orbit with Keplerian speed variation,
@@ -500,6 +719,7 @@ export function useCamera(
             // Sync UI State
             setIsCinematic(false);
             setCinematicMode(null);
+            setCurrentViewpointId(null);
           } else {
             // Apply Zoom (only during active dive)
             setParams((prev) => ({ ...prev, zoom: Math.max(0.2, newR) }));
@@ -592,6 +812,7 @@ export function useCamera(
       cinematicRef.current.recovering = false;
       setIsCinematic(false);
       setCinematicMode(null);
+      setCurrentViewpointId(null);
     }
   }, [setParams]);
 
@@ -599,8 +820,13 @@ export function useCamera(
     (e: React.MouseEvent) => {
       if (!isValidNumber(e.clientX) || !isValidNumber(e.clientY)) return;
 
+      // Support left-click (button 0) and right-click (button 2) for orbiting.
+      // Right-click provides an accessible alternative for users who may find
+      // left-click drag awkward, and enables simultaneous interaction with
+      // UI elements that use left-click.
+      if (e.button !== 0 && e.button !== 2) return;
+
       // Only stop cinematic if we are NOT in a controlled dive
-      // Actually, user wants to CONTROL the dive. So don't stop it.
       if (cinematicRef.current.mode !== "dive") {
         stopCinematic();
       }
@@ -623,14 +849,14 @@ export function useCamera(
       const deltaY = e.clientY - lastMousePos.current.y;
       if (!isValidNumber(deltaX) || !isValidNumber(deltaY)) return;
 
-      const sensitivity = 0.005;
+      const sensitivity = 0.008;
 
       // Directly mutate physics state
       // Note: We add to position AND set velocity (for "throw" momentum on release)
       physicsRef.current.theta += deltaX * sensitivity;
       physicsRef.current.phi += deltaY * sensitivity;
-      physicsRef.current.thetaVelocity = deltaX * sensitivity * 0.5;
-      physicsRef.current.phiVelocity = deltaY * sensitivity * 0.5;
+      physicsRef.current.thetaVelocity = deltaX * sensitivity * 0.4;
+      physicsRef.current.phiVelocity = deltaY * sensitivity * 0.4;
 
       lastMousePos.current.x = e.clientX;
       lastMousePos.current.y = e.clientY;
@@ -725,24 +951,188 @@ export function useCamera(
     [setParams, stopCinematic],
   );
 
+  /**
+   * Start a full viewpoints auto-tour. Cycles through ALL VIEWPOINTS
+   * sequentially, flying to each, dwelling, then advancing to the next.
+   */
+  const startAllViewpointsTour = useCallback(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+
+    // Stop any existing cinematic
+    stopCinematic();
+
+    isDragging.current = false;
+    touchState.current.touches = [];
+    physicsRef.current.thetaVelocity = 0;
+    physicsRef.current.phiVelocity = 0;
+    physicsRef.current.zoomVelocity = 0;
+
+    const now = performance.now();
+    const currentTheta = physicsRef.current.theta;
+    const currentPhi = physicsRef.current.phi;
+    const currentZoom = paramsRef.current.zoom;
+
+    // Collect all viewpoint IDs
+    const allIds: string[] = VIEWPOINTS.map(
+      (vp: { id: string }) => vp.id,
+    );
+    const firstId = allIds[0];
+    const firstDef = firstId ? getViewpoint(firstId) : undefined;
+
+    if (!firstDef) return;
+
+    const DWELL_PER_VIEWPOINT = 10.0; // seconds per viewpoint
+
+    cinematicRef.current = {
+      active: true,
+      mode: "viewpoints-tour",
+      startTime: now,
+      lastTime: now,
+      startParams: {
+        theta: currentTheta,
+        phi: currentPhi,
+        zoom: currentZoom,
+      },
+      velocity: 0,
+      angularMomentum: 0,
+      recovering: false,
+      recoverStartTime: 0,
+      // First viewpoint flight
+      viewpointId: firstDef.id,
+      viewpointPhase: "flying",
+      viewpointStartParams: {
+        theta: currentTheta,
+        phi: currentPhi,
+        zoom: currentZoom,
+      },
+      viewpointTargetParams: {
+        theta: firstDef.camera.theta,
+        phi: firstDef.camera.phi,
+        zoom: firstDef.camera.zoom,
+      },
+      viewpointPhaseStartTime: now,
+      viewpointAnimType: firstDef.animation.type,
+      viewpointAnimSpeed: firstDef.animation.speed ?? 0.1,
+      // Tour state
+      tourViewpointIds: allIds,
+      tourIndex: 0,
+      tourTotal: allIds.length,
+      tourDwellDuration: DWELL_PER_VIEWPOINT,
+    };
+
+    setIsCinematic(true);
+    setCinematicMode("viewpoints-tour");
+    setCurrentViewpointId(firstDef.id);
+    setTourIndex(0);
+    setTourTotal(allIds.length);
+
+    setParams((p) => ({ ...p, autoSpin: 0 }));
+  }, [setParams, stopCinematic]);
+
+  /**
+   * Start a viewpoint fly-to. Smoothly moves the camera to a pre-defined
+   * position and dwells with a characteristic animation (orbit/drift/still).
+   */
+  const startViewpoint = useCallback(
+    (viewpointId: string) => {
+      // Honor reduced-motion preference
+      if (
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        return;
+      }
+
+      const viewpointDef = getViewpoint(viewpointId);
+      if (!viewpointDef) return;
+
+      // Stop any existing cinematic (orbit/dive/viewpoint). This also
+      // clears isCinematic, setCinematicMode, and currentViewpointId.
+      stopCinematic();
+
+      // Clear interaction state to prevent phantom drag blocking
+      isDragging.current = false;
+      touchState.current.touches = [];
+
+      // Clear velocities
+      physicsRef.current.thetaVelocity = 0;
+      physicsRef.current.phiVelocity = 0;
+      physicsRef.current.zoomVelocity = 0;
+
+      const now = performance.now();
+      const currentTheta = physicsRef.current.theta;
+      const currentPhi = physicsRef.current.phi;
+      const currentZoom = paramsRef.current.zoom;
+
+      cinematicRef.current = {
+        active: true,
+        mode: "viewpoint",
+        startTime: now,
+        lastTime: now,
+        startParams: {
+          theta: currentTheta,
+          phi: currentPhi,
+          zoom: currentZoom,
+        },
+        velocity: 0,
+        angularMomentum: 0,
+        recovering: false,
+        recoverStartTime: 0,
+        viewpointId: viewpointDef.id,
+        viewpointPhase: "flying",
+        viewpointStartParams: {
+          theta: currentTheta,
+          phi: currentPhi,
+          zoom: currentZoom,
+        },
+        viewpointTargetParams: {
+          theta: viewpointDef.camera.theta,
+          phi: viewpointDef.camera.phi,
+          zoom: viewpointDef.camera.zoom,
+        },
+        viewpointPhaseStartTime: now,
+        viewpointAnimType: viewpointDef.animation.type,
+        viewpointAnimSpeed: viewpointDef.animation.speed ?? 0.1,
+      };
+
+      setIsCinematic(true);
+      setCinematicMode("viewpoint");
+      setCurrentViewpointId(viewpointDef.id);
+
+      // Disable artificial auto-spin during viewpoint (the viewpoint's
+      // characteristic animation replaces it)
+      setParams((p) => ({ ...p, autoSpin: 0 }));
+    },
+    [setParams, stopCinematic],
+  );
+
   const handleWheel = useCallback(
     (e: React.WheelEvent | WheelEvent) => {
       e.preventDefault();
       if (!isValidNumber(e.deltaY)) return;
 
-      // Wheel interrupts cinematic?
-      // User wants control. Let's allowing wheel to influence zoom MIGHT break physics.
-      // For now, allow it but it might fight the gravity.
-      // Actually, in "dive", gravity sets param.zoom directly.
-      // So wheel won't do much unless we change how dive works.
       if (cinematicRef.current.mode !== "dive") {
         stopCinematic();
       }
 
-      const sensitivity = 0.005;
+      // Power-curve zoom sensitivity: always positive and scales naturally
+      // across the 0.5–500 range. Uses sqrt(ratio) so:
+      //   zoom=0.5 → 0.002  (fine control near event horizon)
+      //   zoom=30  → 0.015  (normal feel at default distance)
+      //   zoom=500 → 0.061  (fast traversal at max range)
+      const currentZoom = paramsRef.current.zoom;
+      const ratio = currentZoom / 30.0;
+      const sensitivity = 0.015 * Math.sqrt(ratio);
       const zoomDelta = e.deltaY * sensitivity;
 
-      // Direct param update for Zoom (it's less physics-dependent in this logic)
+      // Apply via velocity for smooth momentum feel, then clamp
+      physicsRef.current.zoomVelocity = zoomDelta * 0.4;
+
       setParams((prev) => ({
         ...prev,
         zoom: clampAndValidate(
@@ -752,8 +1142,6 @@ export function useCamera(
           prev.zoom,
         ),
       }));
-      // Add velocity for "feel"
-      physicsRef.current.zoomVelocity = zoomDelta * 0.3;
     },
     [setParams, stopCinematic],
   );
@@ -880,6 +1268,7 @@ export function useCamera(
     cinematicRef.current.recovering = false; // Cancel any recovery in progress
     setIsCinematic(false);
     setCinematicMode(null);
+    setCurrentViewpointId(null);
 
     // 2. Reset Physics State
     physicsRef.current = {
@@ -915,9 +1304,15 @@ export function useCamera(
     handleTouchEnd,
     nudgeCamera,
     startCinematic,
+    startViewpoint,
+    startAllViewpointsTour,
     stopCinematic,
     resetCamera,
     isCinematic,
     cinematicMode,
+    currentViewpointId,
+    currentViewpointDef,
+    tourIndex,
+    tourTotal,
   };
 }

@@ -15,8 +15,8 @@ describe("Camera Initial Zoom Dynamics", () => {
         fc.integer({ min: 240, max: 2160 }), // height
         (mass, width, height) => {
           const zoom = calculateInitialZoom(mass, width, height);
-          expect(zoom).toBeGreaterThanOrEqual(2.5);
-          expect(zoom).toBeLessThanOrEqual(50.0);
+          expect(zoom).toBeGreaterThanOrEqual(0.5);
+          expect(zoom).toBeLessThanOrEqual(500.0);
         },
       ),
     );

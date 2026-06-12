@@ -44,8 +44,6 @@ export function useWebGL(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
   const reprojectionManagerRef = useRef<ReprojectionManager | null>(null);
   const noiseTextureRef = useRef<WebGLTexture | null>(null);
   const blueNoiseTextureRef = useRef<WebGLTexture | null>(null);
-  const diskLUTTextureRef = useRef<WebGLTexture | null>(null);
-  const spectrumLUTTextureRef = useRef<WebGLTexture | null>(null);
   const [error, setError] = useState<WebGLError | null>(null);
   const [resolutionScale, setResolutionScale] = useState(1.0);
 
@@ -361,8 +359,6 @@ export function useWebGL(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
     reprojectionManagerRef,
     noiseTextureRef,
     blueNoiseTextureRef,
-    diskLUTTextureRef,
-    spectrumLUTTextureRef,
     error,
     resolutionScale,
     setResolutionScale,

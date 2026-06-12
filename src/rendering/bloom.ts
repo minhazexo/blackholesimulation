@@ -113,12 +113,16 @@ export class BloomManager {
     draw_textureScale: null,
   };
 
+  private hasFloatFramebuffer: boolean;
+
   constructor(
     gl: WebGL2RenderingContext,
     config: BloomConfig = DEFAULT_BLOOM_CONFIG,
+    hasFloatFramebuffer: boolean = true,
   ) {
     this.gl = gl;
     this.config = { ...config };
+    this.hasFloatFramebuffer = hasFloatFramebuffer;
   }
 
   /**
@@ -209,16 +213,25 @@ export class BloomManager {
 
     if (!texture) return null;
 
+    // If EXT_color_buffer_float is unavailable (Safari ≤16, some mobile),
+    // downgrade from RGBA16F to RGBA8 to avoid FRAMEBUFFER_INCOMPLETE_ATTACHMENT.
+    const internalFormat = this.hasFloatFramebuffer
+      ? gl.RGBA16F
+      : gl.RGBA8;
+    const type = this.hasFloatFramebuffer
+      ? gl.HALF_FLOAT
+      : gl.UNSIGNED_BYTE;
+
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
-      gl.RGBA16F, // Internal format: 16-bit floating point per channel (HDR)
+      internalFormat,
       width,
       height,
       0,
       gl.RGBA,
-      gl.HALF_FLOAT, // Type: Half float is sufficient for HDR and faster
+      type,
       null,
     );
 

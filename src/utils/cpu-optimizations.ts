@@ -231,6 +231,24 @@ export class UniformBatcher {
 
     // Fast path: Float32Array (Zero-Copy)
     if (value instanceof Float32Array) {
+      // Dirty-check large arrays (e.g. 128-element shadow curve) to avoid
+      // redundant glUniform* calls every frame when values haven't changed.
+      if (value.length > 4) {
+        const prev = this.valueCache.get(name) as Float32Array | undefined;
+        let changed = true;
+        if (prev && prev.length === value.length) {
+          changed = false;
+          for (let i = 0; i < value.length; i++) {
+            if ((prev[i] ?? 0) !== (value[i] ?? 0)) {
+              changed = true;
+              break;
+            }
+          }
+        }
+        if (!changed) return; // No change, skip upload
+        this.valueCache.set(name, value);
+      }
+
       if (value.length === 2) this.gl.uniform2fv(loc, value);
       else if (value.length === 3) this.gl.uniform3fv(loc, value);
       else if (value.length === 4) this.gl.uniform4fv(loc, value);

@@ -11,8 +11,13 @@ const nextConfig = {
 
   // Production Optimizations
   compiler: {
-    // Remove console.log in production for cleaner performance
-    removeConsole: process.env.NODE_ENV === "production",
+    // Remove console.log in production for cleaner performance.
+    // Preserve console.error and console.warn so critical diagnostics
+    // and user-facing error messages are not stripped.
+    removeConsole:
+      process.env.NODE_ENV === "production"
+        ? { exclude: ["error", "warn"] }
+        : false,
   },
 
   // Asset Optimization

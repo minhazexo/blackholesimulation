@@ -23,6 +23,7 @@ export interface SimulationParams {
   diskScaleHeight: number;
   adaptiveResolution?: boolean;
   renderScale: number;
+  starDensity?: number;
   features?: FeatureToggles;
   performancePreset?: import("./features").PresetName;
   verticalAngle?: number;
@@ -40,6 +41,7 @@ export const DEFAULT_PARAMS: SimulationParams = {
   diskSize: SIMULATION_CONFIG.diskSize.default,
   diskScaleHeight: SIMULATION_CONFIG.diskScaleHeight.default,
   renderScale: SIMULATION_CONFIG.renderScale.default,
+  starDensity: SIMULATION_CONFIG.starDensity.default,
   features: SIMULATION_CONFIG.features.default,
   performancePreset: DEFAULT_PRESET_MODE,
   verticalAngle: SIMULATION_CONFIG.verticalAngle.default,

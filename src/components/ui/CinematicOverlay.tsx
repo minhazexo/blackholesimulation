@@ -1,10 +1,15 @@
 import React, { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, Radio } from "lucide-react";
+import { AlertTriangle, Radio, Camera } from "lucide-react";
+import type { ViewpointDef } from "@/configs/viewpoints";
 
 interface CinematicOverlayProps {
   isCinematic: boolean;
   zoom: number;
+  cinematicMode?: "orbit" | "dive" | "viewpoint" | "viewpoints-tour" | null;
+  currentViewpointDef?: ViewpointDef | null;
+  tourIndex?: number;
+  tourTotal?: number;
 }
 
 // Schwarzschild Radius (Rs) is effectively 2.0 in the simulation's visual units for the "Danger Zone"
@@ -17,6 +22,10 @@ const CRITICAL_LIMIT = 2.5;
 export const CinematicOverlay = ({
   isCinematic,
   zoom,
+  cinematicMode,
+  currentViewpointDef,
+  tourIndex,
+  tourTotal,
 }: CinematicOverlayProps) => {
   // Calculate proximity factor (0 to 1) where 1 is touching the horizon
   const proximity = useMemo(() => {
@@ -33,6 +42,48 @@ export const CinematicOverlay = ({
     <AnimatePresence>
       {isCinematic && (
         <div className="fixed inset-0 pointer-events-none z-40 flex flex-col justify-between">
+          {/* Viewpoint title bar */}
+          {(cinematicMode === "viewpoint" ||
+            cinematicMode === "viewpoints-tour") &&
+            currentViewpointDef && (
+              <motion.div
+                initial={{ opacity: 0, y: -15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ delay: 0.3, duration: 0.6 }}
+                className="absolute top-0 left-0 right-0 flex justify-center pt-6"
+              >
+                <div className="flex items-center gap-3 px-5 py-2.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-full">
+                  <Camera className="w-3.5 h-3.5 text-white/70" />
+                  <div className="flex flex-col items-center">
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white">
+                      {currentViewpointDef.name}
+                    </span>
+                    <span className="text-[7px] font-mono text-white/40 uppercase tracking-[0.2em]">
+                      {currentViewpointDef.subtitle}
+                    </span>
+                  </div>
+                  {/* Tour progress badge */}
+                  {cinematicMode === "viewpoints-tour" &&
+                    tourTotal !== undefined &&
+                    tourIndex !== undefined && (
+                      <div className="flex items-center gap-1.5 pl-3 ml-3 border-l border-white/10">
+                        <span className="text-[7px] font-mono text-white/50 uppercase tracking-[0.15em]">
+                          {tourIndex + 1}/{tourTotal}
+                        </span>
+                      </div>
+                    )}
+                  <div
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{
+                      backgroundColor: `hsl(${currentViewpointDef.hue}, 60%, 60%)`,
+                      boxShadow: `0 0 8px hsla(${currentViewpointDef.hue}, 60%, 50%, 0.5)`,
+                    }}
+                  />
+                </div>
+              </motion.div>
+            )}
+
           {/* Center Content / Effects Layer */}
           <div className="absolute inset-0 flex items-center justify-center">
             {/* Visual Noise / Signal Degradation based on Proximity */}

@@ -15,6 +15,7 @@ import { SIMULATION_CONFIG } from "@/configs/simulation.config";
  *   1-4               -- apply performance presets
  *   H                 -- toggle UI visibility
  *   D                 -- (reserved for debug overlay)
+ *   P / S             -- take screenshot
  *
  * Phase 7: New feature -- keyboard navigation for accessibility and power users.
  */
@@ -24,6 +25,7 @@ interface UseKeyboardOptions {
   setShowUI: React.Dispatch<React.SetStateAction<boolean>>;
   nudgeCamera?: (dTheta: number, dPhi: number) => void;
   toggleDebug?: () => void;
+  onScreenshot?: () => void;
 }
 
 export function useKeyboard({
@@ -32,6 +34,7 @@ export function useKeyboard({
   setShowUI,
   nudgeCamera,
   toggleDebug,
+  onScreenshot,
 }: UseKeyboardOptions) {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -40,7 +43,9 @@ export function useKeyboard({
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
       const ORBIT_STEP = 0.05; // Normalized mouse movement per keypress
-      const ZOOM_STEP = SIMULATION_CONFIG.zoom.step * 4;
+      // Zoom step proportional to current distance: 10% of current zoom.
+      // This keeps keyboard zoom feeling consistent across the 0.5–500 range.
+      const ZOOM_STEP_FACTOR = 0.10;
 
       switch (e.key) {
         // Camera orbit (horizontal)
@@ -65,13 +70,16 @@ export function useKeyboard({
           nudgeCamera?.(0, ORBIT_STEP);
           break;
 
-        // Zoom
+        // Zoom in/out with proportional step size
         case "=":
         case "+":
           e.preventDefault();
           setParams((prev) => ({
             ...prev,
-            zoom: Math.max(SIMULATION_CONFIG.zoom.min, prev.zoom - ZOOM_STEP),
+            zoom: Math.max(
+              SIMULATION_CONFIG.zoom.min,
+              prev.zoom - Math.max(0.5, prev.zoom * ZOOM_STEP_FACTOR),
+            ),
           }));
           break;
 
@@ -79,7 +87,10 @@ export function useKeyboard({
           e.preventDefault();
           setParams((prev) => ({
             ...prev,
-            zoom: Math.min(SIMULATION_CONFIG.zoom.max, prev.zoom + ZOOM_STEP),
+            zoom: Math.min(
+              SIMULATION_CONFIG.zoom.max,
+              prev.zoom + Math.max(0.5, prev.zoom * ZOOM_STEP_FACTOR),
+            ),
           }));
           break;
 
@@ -115,11 +126,20 @@ export function useKeyboard({
           toggleDebug?.();
           break;
 
+        // Screenshot capture
+        case "p":
+        case "P":
+        case "s":
+        case "S":
+          e.preventDefault();
+          onScreenshot?.();
+          break;
+
         default:
           break;
       }
     },
-    [setParams, applyPreset, setShowUI, nudgeCamera, toggleDebug],
+    [setParams, applyPreset, setShowUI, nudgeCamera, toggleDebug, onScreenshot],
   );
 
   useEffect(() => {

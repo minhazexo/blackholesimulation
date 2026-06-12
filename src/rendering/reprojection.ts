@@ -35,6 +35,7 @@ export class ReprojectionManager {
   private width = 1;
   private height = 1;
   private isInitialized = false;
+  private hasFloatFramebuffer: boolean;
 
   // Cached uniform/attribute locations (Phase 1: eliminates per-frame string lookups)
   private loc_currentFrame: WebGLUniformLocation | null = null;
@@ -45,8 +46,9 @@ export class ReprojectionManager {
   private loc_resolution: WebGLUniformLocation | null = null;
   private attrib_position: number = -1;
 
-  constructor(gl: WebGL2RenderingContext) {
+  constructor(gl: WebGL2RenderingContext, hasFloatFramebuffer: boolean = true) {
     this.gl = gl;
+    this.hasFloatFramebuffer = hasFloatFramebuffer;
     this.initShaders();
     this.quadBuffer = getSharedQuadBuffer(gl);
   }
@@ -120,16 +122,26 @@ export class ReprojectionManager {
   private createTexture(width: number, height: number): WebGLTexture | null {
     const gl = this.gl;
     const tex = gl.createTexture();
+
+    // If EXT_color_buffer_float is unavailable (Safari ≤16, some mobile),
+    // downgrade from RGBA16F to RGBA8 to avoid FRAMEBUFFER_INCOMPLETE_ATTACHMENT.
+    const internalFormat = this.hasFloatFramebuffer
+      ? gl.RGBA16F
+      : gl.RGBA8;
+    const type = this.hasFloatFramebuffer
+      ? gl.HALF_FLOAT
+      : gl.UNSIGNED_BYTE;
+
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
-      gl.RGBA16F, // Internal format: 16-bit floating point per channel (HDR)
+      internalFormat,
       width,
       height,
       0,
       gl.RGBA,
-      gl.HALF_FLOAT, // Type: Half float is sufficient for HDR and faster
+      type,
       null,
     );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);

@@ -68,16 +68,81 @@ fn noise(p: vec3f) -> f32 {
     return mix(nxy0, nxy1, u.z);
 }
 
+fn realisticStarColor(t: f32) -> vec3f {
+    let t_clamped = clamp(t, 0.0, 1.0);
+    let c0 = vec3f(0.5, 0.6, 1.0);  // O
+    let c1 = vec3f(0.7, 0.8, 1.0);  // B
+    let c2 = vec3f(0.9, 0.9, 1.0);  // A
+    let c3 = vec3f(1.0, 0.9, 0.8);  // F
+    let c4 = vec3f(1.0, 0.8, 0.6);  // G
+    let c5 = vec3f(1.0, 0.6, 0.4);  // K
+    let c6 = vec3f(1.0, 0.4, 0.3);  // M
+    let s = t_clamped * 6.0;
+    var col: vec3f;
+    if (s < 1.0) { col = mix(c0, c1, s); }
+    else if (s < 2.0) { col = mix(c1, c2, s - 1.0); }
+    else if (s < 3.0) { col = mix(c2, c3, s - 2.0); }
+    else if (s < 4.0) { col = mix(c3, c4, s - 3.0); }
+    else if (s < 5.0) { col = mix(c4, c5, s - 4.0); }
+    else { col = mix(c5, c6, s - 5.0); }
+    return max(col, vec3f(0.0));
+}
+
+fn galacticLatitude(dir: vec3f) -> f32 {
+    return abs(dir.y * 0.5 + dir.z * 0.866);
+}
+
 fn starfield(dir: vec3f) -> vec3f {
-    // Simplified starfield port
     var stars = vec3f(0.0);
-    let cell = floor(dir * 200.0);
-    // Note: hash needs 3D input
-    let starNoise = hash(cell); 
-    if (starNoise > 0.998) {
-        let brightness = pow(starNoise, 10.0) * 2.0;
-        stars = vec3f(1.0) * brightness;
+
+    // Milky Way density proxy
+    let lat = galacticLatitude(dir);
+    let milkyWay = exp(-lat * lat * 15.0);
+
+    // Layer 1: Bright stars (boosted in galactic plane)
+    let thresh1 = 0.995 - milkyWay * 0.003;
+    let cell1 = floor(dir * 180.0);
+    var n = hash(cell1);
+    if (n > thresh1) {
+        let brightness = pow(n, 10.0) * 4.0;
+        let temp = hash(cell1 + 73.7);
+        stars += realisticStarColor(pow(temp, 1.5)) * brightness;
     }
+
+    // Layer 2: Medium stars (reduced ~30%)
+    let thresh2 = 0.985 - milkyWay * 0.012;
+    let cell2 = floor(dir * 400.0);
+    n = hash(cell2 + 217.3);
+    if (n > thresh2) {
+        let brightness = pow(n, 18.0) * 1.5;
+        let temp = hash(cell2 + 89.5);
+        stars += realisticStarColor(pow(temp, 1.5)) * brightness;
+    }
+
+    // Layer 3: Dim stars (reduced ~30%)
+    let thresh3 = 0.962 - milkyWay * 0.030;
+    let cell3 = floor(dir * 800.0);
+    n = hash(cell3 + 433.7);
+    if (n > thresh3) {
+        let brightness = pow(n, 30.0) * 0.8;
+        let temp = hash(cell3 + 511.3);
+        stars += realisticStarColor(pow(temp, 1.5)) * brightness;
+    }
+
+    // Layer 4: Ultra-dim background stars (reduced ~35%)
+    let thresh4 = 0.930 - milkyWay * 0.040;
+    let cell4 = floor(dir * 1500.0);
+    n = hash(cell4 + 617.3);
+    if (n > thresh4) {
+        let brightness = pow(n, 50.0) * 0.3;
+        let temp = hash(cell4 + 811.7);
+        stars += realisticStarColor(pow(temp, 1.5)) * brightness;
+    }
+
+    // Milky Way unresolved haze (reduced ~30% to match lower star count)
+    let haze = milkyWay * 0.013;
+    stars += vec3f(haze * 0.55, haze * 0.45, haze * 0.75);
+
     return stars;
 }
 
