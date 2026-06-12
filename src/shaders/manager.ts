@@ -34,6 +34,7 @@ export class ShaderManager {
       jets: features.relativisticJets,
       redshift: features.gravitationalRedshift,
       shadow: features.kerrShadow,
+      spacetime: features.spacetimeVisualization,
       hasPost: !!(features as FeatureToggles & { hasPost?: boolean }).hasPost,
     });
   }
