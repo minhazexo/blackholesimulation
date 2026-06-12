@@ -77,6 +77,7 @@ import { getPreset, type PresetName } from "@/types/features";
 import { settingsStorage } from "@/storage/settings";
 import { useWebGPUSupport } from "@/hooks/useWebGPUSupport";
 import { useSystemProfile } from "@/hooks/useSystemProfile";
+import { useAudio } from "@/hooks/useAudio";
 import { SystemProfileScreen } from "@/components/ui/SystemProfileScreen";
 import { WasmLoadingOverlay } from "@/components/ui/WasmLoadingOverlay";
 
@@ -240,8 +241,8 @@ const App = () => {
     const { physicsBridge } = require("@/engine/physics-bridge");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     physicsBridge.ensureInitialized().catch((err: any) => {
-      // eslint-disable-next-line no-console
-      console.error("Critical Physics Initialization Failure:", err);
+    // eslint-disable-next-line no-console
+    console.error("Critical Physics Initialization Failure:", err);
       // Dismiss loading overlay on failure so the user sees the canvas
       // (which falls back to Schwarzschild approximations).
       setPhysicsReady(true);
@@ -273,13 +274,21 @@ const App = () => {
     };
   }, [isWebGPUSupported]);
 
-  // No return until profile is ready — show system profile loading screen
-  if (!profileReady) {
-    return <SystemProfileScreen stageInfo={stageInfo} />;
-  }
+  // ── Background Audio ──
+  const {
+    isPlaying: audioPlaying,
+    volume: audioVolume,
+    toggle: onAudioToggle,
+    setVolume: onAudioVolumeChange,
+    handleInteraction: handleAudioInteraction,
+  } = useAudio();
 
   return (
-    <div className="relative w-full h-screen bg-black overflow-hidden select-none font-sans text-white">
+    <div
+      className="relative w-full h-screen bg-black overflow-hidden select-none font-sans text-white"
+      onClick={handleAudioInteraction}
+      onTouchStart={handleAudioInteraction}
+    >
       {/* WASM compilation loading overlay. Hides once the physics bridge
           acknowledges the worker + Rust kernel are operational. */}
       <WasmLoadingOverlay visible={!physicsReady} />
@@ -908,6 +917,10 @@ BibTeX:
           currentViewpointId={currentViewpointId}
           tourIndex={tourIndex}
           tourTotal={tourTotal}
+          audioPlaying={audioPlaying}
+          audioVolume={audioVolume}
+          onAudioToggle={onAudioToggle}
+          onAudioVolumeChange={onAudioVolumeChange}
         />
 
         <SimulationInfo

@@ -21,6 +21,7 @@ import {
   Layers,
   Camera,
 } from "lucide-react";
+import { AudioControl } from "./AudioControl";
 import { UserProfile } from "./UserProfile";
 import { type SimulationParams, DEFAULT_PARAMS } from "@/types/simulation";
 import { SIMULATION_CONFIG } from "@/configs/simulation.config";
@@ -53,6 +54,10 @@ interface ControlPanelProps {
   currentViewpointId?: string | null;
   tourIndex?: number;
   tourTotal?: number;
+  audioPlaying?: boolean;
+  audioVolume?: number;
+  onAudioToggle?: () => void;
+  onAudioVolumeChange?: (volume: number) => void;
 }
 
 const PRESETS: { id: PresetName; label: string }[] = [
@@ -180,6 +185,10 @@ export const ControlPanel = ({
   currentViewpointId,
   tourIndex,
   tourTotal,
+  audioPlaying,
+  audioVolume,
+  onAudioToggle,
+  onAudioVolumeChange,
 }: ControlPanelProps) => {
   const [isResetting, setIsResetting] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -973,6 +982,18 @@ export const ControlPanel = ({
                         </>
                       )}
                     </div>
+                  </div>
+
+                  {/* Audio Control — always visible in full mode */}
+                  <div className="mt-4">
+                    {audioPlaying !== undefined && (
+                      <AudioControl
+                        isPlaying={audioPlaying}
+                        volume={audioVolume ?? 0.5}
+                        onToggle={onAudioToggle ?? (() => {})}
+                        onVolumeChange={onAudioVolumeChange ?? (() => {})}
+                      />
+                    )}
                   </div>
                 </div>
 
