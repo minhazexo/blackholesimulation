@@ -11,7 +11,7 @@ const softwareAppSchema = {
   "@type": "SoftwareApplication",
 };
 
-// SOURCE: github.com/steeltroops-ai
+// SOURCE: github.com/minhazexo
 const sourceSchema = {
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",

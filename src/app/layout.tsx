@@ -52,9 +52,9 @@ export const metadata: Metadata = {
     "M87*",
     "Interstellar Physics",
   ],
-  authors: [{ name: "Mayank Pratap Singh" }],
-  creator: "Mayank Pratap Singh",
-  publisher: "Mayank Pratap Singh",
+  authors: [{ name: "Minhazexo" }],
+  creator: "Minhazexo",
+  publisher: "Minhazexo",
   applicationName: "Blackhole Simulation",
   category: "science",
   classification: "Educational Simulation",
@@ -79,8 +79,8 @@ export const metadata: Metadata = {
     title: "Interactive Black Hole Simulation",
     description:
       "Visualize General Relativity in real-time. Experience gravitational lensing and the event horizon directly in your browser.",
-    creator: "@steeltroops_ai",
-    site: "@steeltroops_ai",
+    creator: "@minhazexo",
+    site: "@minhazexo",
   },
   robots: {
     index: true,
@@ -162,12 +162,12 @@ const softwareAppSchema = {
     "Real-time browser simulation of a Kerr black hole. Numerically integrates null geodesics in Boyer-Lindquist and Kerr-Schild coordinates, renders gravitational lensing, accretion disk emission, and relativistic Doppler beaming via GPU ray-marching.",
   author: {
     "@type": "Person",
-    name: "Mayank Pratap Singh",
-    url: "https://steeltroops.vercel.app",
+    name: "Minhazexo",
+    url: "https://minhazexo.netlify.app",
     sameAs: [
-      "https://github.com/steeltroops-ai",
-      "https://github.com/steeltroops-ai/blackhole-simulation",
-      "https://twitter.com/steeltroops_ai",
+      "https://github.com/minhazexo",
+      "https://github.com/minhazexo/blackholesimulation",
+      "https://www.facebook.com/minhazexo1/",
     ],
   },
 };
@@ -182,7 +182,7 @@ const scholarlyArticleSchema = {
     "A technical study on implementing general relativistic ray tracing using symplectic integrators in WebGL/WebGPU.",
   author: {
     "@type": "Person",
-    name: "Mayank Pratap Singh",
+    name: "Minhazexo",
   },
   keywords: "Kerr Metric, General Relativity, Black Hole, Ray Tracing, WebGPU",
   url: "https://blackhole-simulation.vercel.app#physics-guide",
@@ -202,18 +202,18 @@ const techArticleSchema = {
   image: "https://blackhole-simulation.vercel.app/opengraph-image.jpg",
   author: {
     "@type": "Person",
-    name: "Mayank Pratap Singh",
-    url: "https://steeltroops.vercel.app",
+    name: "Minhazexo",
+    url: "https://minhazexo.netlify.app",
     sameAs: [
-      "https://github.com/steeltroops-ai",
-      "https://twitter.com/steeltroops_ai",
+      "https://github.com/minhazexo",
+      "https://www.facebook.com/minhazexo1/",
     ],
   },
   genre: "Astrophysics Simulation",
   keywords: "black hole, kerr metric, general relativity, accretion disk",
   publisher: {
     "@type": "Person",
-    name: "Mayank Pratap Singh",
+    name: "Minhazexo",
     logo: {
       "@type": "ImageObject",
       url: "https://blackhole-simulation.vercel.app/brand-logo.png",
@@ -227,21 +227,17 @@ const techArticleSchema = {
   },
 };
 
-// SOURCE: steeltroops.vercel.app portfolio (verified). github.com/steeltroops-ai (verified). Identity surface for LLM/AI agent indexing.
+// SOURCE: minhazexo.netlify.app portfolio (verified). github.com/minhazexo (verified). Identity surface for LLM/AI agent indexing.
 const authorSchema = {
   "@context": "https://schema.org",
   "@type": "Person",
-  "@id": "https://steeltroops.vercel.app/#person",
-  name: "Mayank Pratap Singh",
-  alternateName: ["steeltroops", "steeltroops-ai"],
-  givenName: "Mayank",
-  familyName: "Singh",
-  additionalName: "Pratap",
-  url: "https://steeltroops.vercel.app",
-  email: "mailto:steeltroops.ai@gmail.com",
-  jobTitle: "Full Stack, Robotics, and Machine Learning Engineer",
+  "@id": "https://minhazexo.netlify.app/#person",
+  name: "Minhazexo",
+  alternateName: ["minhazexo"],
+  url: "https://minhazexo.netlify.app",
+  jobTitle: "Full Stack Developer",
   description:
-    "Production engineer building across full stack web, machine learning pipelines, and robotics systems. Author of blackhole-simulation: a real-time browser-based Kerr black hole ray-marching engine.",
+    "Web developer and creator of blackholesimulation: a real-time browser-based Kerr black hole ray-marching engine.",
   knowsAbout: [
     "General Relativity",
     "Kerr Metric",
@@ -262,10 +258,10 @@ const authorSchema = {
     "Full Stack Development",
   ],
   sameAs: [
-    "https://github.com/steeltroops-ai",
-    "https://github.com/steeltroops-ai/blackhole-simulation",
-    "https://twitter.com/steeltroops_ai",
-    "https://steeltroops.vercel.app",
+    "https://github.com/minhazexo",
+    "https://github.com/minhazexo/blackholesimulation",
+    "https://www.facebook.com/minhazexo1/",
+    "https://minhazexo.netlify.app",
   ],
   workLocation: {
     "@type": "Country",
@@ -277,9 +273,9 @@ const authorSchema = {
 const profilePageSchema = {
   "@context": "https://schema.org",
   "@type": "ProfilePage",
-  url: "https://steeltroops.vercel.app",
-  mainEntity: { "@id": "https://steeltroops.vercel.app/#person" },
-  about: { "@id": "https://steeltroops.vercel.app/#person" },
+  url: "https://minhazexo.netlify.app",
+  mainEntity: { "@id": "https://minhazexo.netlify.app/#person" },
+  about: { "@id": "https://minhazexo.netlify.app/#person" },
   dateModified: "2026-04-29",
 };
 
@@ -376,7 +372,7 @@ const datasetSchema = {
     "A comprehensive dataset of null and timelike geodesics computed within the Kerr spacetime manifold across varying spin parameters (a=0 to a=0.998). Includes effective potential calculations and orbital frequency data.",
   creator: {
     "@type": "Person",
-    name: "Mayank Pratap Singh",
+    name: "Minhazexo",
   },
   license: "https://opensource.org/licenses/MIT",
   keywords: [
@@ -400,7 +396,7 @@ const researchProjectSchema = {
   name: "Kerr Metric Spacetime Simulation Lab",
   description:
     "Open-source research-grade visualization of relativistic phenomena in rotating black holes: gravitational lensing, frame dragging, photon ring, accretion disk radiative transfer.",
-  author: { "@id": "https://steeltroops.vercel.app/#person" },
+  author: { "@id": "https://minhazexo.netlify.app/#person" },
 };
 
 // SOURCE: schema.org/Service. Provider is real Person; serviceType is descriptive, not metric-claiming.
@@ -408,7 +404,7 @@ const serviceSchema = {
   "@context": "https://schema.org",
   "@type": "Service",
   serviceType: "Scientific Visualization",
-  provider: { "@id": "https://steeltroops.vercel.app/#person" },
+  provider: { "@id": "https://minhazexo.netlify.app/#person" },
   areaServed: "Global",
   description:
     "Real-time interactive black hole physics simulation service for researchers, educators, and students.",
@@ -548,15 +544,15 @@ const james2015DngrSchema = {
   ],
 };
 
-// SOURCE: github.com/steeltroops-ai/blackhole-simulation. Real public repo, MIT license.
+// SOURCE: github.com/minhazexo/blackholesimulation. Real public repo, MIT license.
 const sourceCodeSchema = {
   "@context": "https://schema.org",
   "@type": "SoftwareSourceCode",
-  name: "blackhole-simulation",
-  codeRepository: "https://github.com/steeltroops-ai/blackhole-simulation",
+  name: "blackholesimulation",
+  codeRepository: "https://github.com/minhazexo/blackholesimulation",
   programmingLanguage: ["TypeScript", "Rust", "WGSL", "GLSL"],
   license: "https://opensource.org/licenses/MIT",
-  author: { "@id": "https://steeltroops.vercel.app/#person" },
+  author: { "@id": "https://minhazexo.netlify.app/#person" },
 };
 
 export default function RootLayout({

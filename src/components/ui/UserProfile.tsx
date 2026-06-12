@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Github, Twitter, User, Globe } from "lucide-react";
+import { Github, Facebook, User, Globe } from "lucide-react";
 
 export const UserProfile = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -39,7 +39,7 @@ export const UserProfile = () => {
                 <div className="absolute inset-0 liquid-glass-highlight pointer-events-none" />
 
                 <span className="relative z-10 text-[11px] text-white/90 font-medium tracking-wide">
-                  Built by <span className="font-bold text-white">Mayank</span>
+                  Built by <span className="font-bold text-white">Minhazexo</span>
                 </span>
               </div>
             </motion.div>
@@ -57,7 +57,7 @@ export const UserProfile = () => {
             className="flex flex-col items-center gap-5 z-50"
           >
             <a
-              href="https://github.com/steeltroops-ai/blackhole-simulation"
+              href="https://github.com/minhazexo"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white opacity-60 hover:opacity-100 transition-all transform hover:scale-125"
@@ -66,16 +66,16 @@ export const UserProfile = () => {
               <Github className="w-5 h-5 sm:w-6 h-6" />
             </a>
             <a
-              href="https://twitter.com/steeltroops_ai"
+              href="https://www.facebook.com/minhazexo1/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white opacity-60 hover:opacity-100 transition-all transform hover:scale-125"
-              title="Twitter"
+              title="Facebook"
             >
-              <Twitter className="w-5 h-5 sm:w-6 h-6" />
+              <Facebook className="w-5 h-5 sm:w-6 h-6" />
             </a>
             <a
-              href="https://steeltroops.vercel.app/"
+              href="https://minhazexo.netlify.app/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white opacity-60 hover:opacity-100 transition-all transform hover:scale-125"

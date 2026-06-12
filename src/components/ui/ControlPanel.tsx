@@ -457,7 +457,7 @@ export const ControlPanel = ({
                         </h2>
                         <div className="flex items-center gap-2">
                           <p className="text-white/60 text-[7px] font-mono tracking-[0.15em] font-medium uppercase">
-                            by Mayank @steeltroops_ai
+                            by Minhazexo
                           </p>
                           <button
                             onClick={() => onToggleUI(false)}

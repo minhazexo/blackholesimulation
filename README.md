@@ -83,4 +83,4 @@ bun run dev
 
 ## License
 
-MIT - Copyright (c) 2026 Mayank / steeltroops-ai.
+MIT - Copyright (c) 2026 Minhazexo.
